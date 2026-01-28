@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -9,10 +9,18 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
+  NodeMouseHandler,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
 import './Flow.css';
+
+interface FlowProps {
+  onNodeClick: (nodeId: string, nodeData: NodeData) => void;
+  onPaneClick: () => void;
+  selectedNodeId: string | null;
+  selectedNodeData: NodeData | null;
+}
 
 /**
  * Initial sample nodes with our NodeData structure
@@ -63,11 +71,24 @@ const initialEdges: Edge[] = [
 /**
  * Flow Component - The interactive node graph canvas
  */
-function Flow() {
+function Flow({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData }: FlowProps) {
   // useNodesState and useEdgesState manage the nodes and edges with React state
   // Similar to useState but with special React Flow helpers
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update node data when it changes in the editor
+  useEffect(() => {
+    if (selectedNodeId && selectedNodeData) {
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === selectedNodeId
+            ? { ...node, data: selectedNodeData }
+            : node
+        )
+      );
+    }
+  }, [selectedNodeId, selectedNodeData, setNodes]);
 
   // Handle creating new connections when user drags from one node to another
   const onConnect = useCallback(
@@ -80,6 +101,14 @@ function Flow() {
     [setEdges]
   );
 
+  // Handle node clicks - notify parent component
+  const handleNodeClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      onNodeClick(node.id, node.data as NodeData);
+    },
+    [onNodeClick]
+  );
+
   return (
     <div style={{ width: '100%', height: '100vh' }}>
       <ReactFlow
@@ -88,6 +117,8 @@ function Flow() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={handleNodeClick}
+        onPaneClick={onPaneClick}
         fitView
         selectNodesOnDrag={false}
       >
@@ -98,7 +129,11 @@ function Flow() {
         <Controls />
         
         {/* Mini map for navigation */}
-        <MiniMap />
+        <MiniMap
+          nodeColor={(node) =>
+            node.id === selectedNodeId ? '#3b82f6' : '#555'
+          }
+        />
       </ReactFlow>
     </div>
   );
