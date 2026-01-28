@@ -34,12 +34,16 @@ The side panel allows to edit the content of the node. It is enabled if and only
 - Add global styles
 - Verify hot reload works
 
-### 3. Node Graph Canvas
-- Integrate React Flow
-- Create sample nodes with title, color, description
-- Enable multi-select (for moving nodes)
+### 3a. Type Definitions & React Flow Setup
+- Create `src/types.ts` with NodeData interface
+- Install React Flow library
+- Create basic Flow component skeleton
+
+### 3b. Node Graph Canvas
+- Add sample nodes with title, color, description
 - Add connections (edges/noodles)
-- Style the canvas
+- Style the canvas (dark theme, controls, minimap)
+- Enable multi-select for moving nodes
 
 ### 4. Editor Side Panel
 - Create panel component with form fields (title, color, description)

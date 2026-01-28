@@ -1,0 +1,98 @@
+/* Dark theme for React Flow */
+.react-flow {
+  background: #1a1a1a;
+}
+
+/* Style for nodes */
+.react-flow__node {
+  background: #2a2a2a;
+  border: 2px solid #3a3a3a;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  color: #e0e0e0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.react-flow__node:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.react-flow__node.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6);
+  border-width: 3px;
+}
+
+/* Node handles (connection points) */
+.react-flow__handle {
+  background: #3b82f6;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #1a1a1a;
+}
+
+.react-flow__handle:hover {
+  background: #60a5fa;
+}
+
+/* Edges (connections/noodles) */
+.react-flow__edge-path {
+  stroke: #555;
+  stroke-width: 2;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-dasharray: 5;
+  animation: dashdraw .5s linear infinite;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-width: 3;
+}
+
+/* Controls (zoom/pan buttons) */
+.react-flow__controls {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__controls-button {
+  background: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+  color: #e0e0e0;
+}
+
+.react-flow__controls-button:hover {
+  background: #3a3a3a;
+}
+
+/* Mini map */
+.react-flow__minimap {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(59, 130, 246, 0.2);
+}
+
+/* Background grid */
+.react-flow__background {
+  background-color: #1a1a1a;
+}
+
+/* Animation for animated edges */
+@keyframes dashdraw {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
