@@ -1,0 +1,39 @@
+# Cursor Rules for Mind Project
+
+## Documentation Rules
+
+### README.md
+- Only update README.md to reflect the **current state** of the project
+- Do NOT include planned features, future work, or "coming soon" sections
+- Document only what actually exists and works right now
+- If something is partially implemented, either omit it or clearly mark it as non-functional
+
+## Development Guidelines
+
+### Learning-Focused Development
+- This is a learning project for web technologies
+- Explain concepts before implementing them
+- Make connections to C++ and Python when relevant
+- Prefer clarity over brevity in code comments
+
+### Code Style
+- Use TypeScript strictly (no `any` types unless absolutely necessary)
+- Prefer functional React components with hooks
+- Keep components small and focused
+- Use meaningful variable names
+
+### File Organization
+- Follow the structure defined in DEV_PLAN.md
+- Create files only when explicitly requested or clearly needed
+- Don't skip ahead in the development phases
+
+## React/TypeScript Conventions
+- Use arrow functions for components
+- Use `interface` for props and data types
+- Prefer `const` over `let`
+- Use destructuring for props and state
+
+## Testing
+- Test manually in browser after each phase
+- Verify hot reload is working
+- Check browser console for errors before moving on
