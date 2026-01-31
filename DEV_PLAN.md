@@ -36,25 +36,32 @@ Web-based node graph editor with interactive nodes, connections, and parameter e
 ### 9. Testing & Architecture Refactor
 - Separated pure logic from React code
 - Created testable classes in `src/lib/`:
-  - `HistoryManager` - Undo/redo state
-  - `GraphOperations` - Graph manipulation
-- Achieved 100% test coverage for core logic (46/46 tests)
+  - `HistoryManager` - Undo/redo state management
+  - `GraphOperations` - Graph manipulation functions
+- Refactored hooks to be thin wrappers around pure classes
+- Test suite: 55/55 passing
+  - 46 tests for pure logic (100% coverage)
+  - 9 tests for React integration layer
 
 ---
 
 ## Architecture
 
-The app follows a clean separation of concerns:
+The app follows a clean three-layer architecture:
 
-**Pure Logic** (`src/lib/`)
+**1. Pure Logic** (`src/lib/`)
 - `HistoryManager.ts` - Undo/redo state management
 - `GraphOperations.ts` - Graph manipulation functions
-- Fully tested, no React dependencies
+- No React dependencies, fully testable
 
-**React Layer**
+**2. React Integration** (`src/hooks/`)
+- `useHistory` - Thin wrapper connecting HistoryManager to React state
+- `useGraphModel` - Thin wrapper connecting GraphOperations to React state
+- Handles React lifecycle, delegates logic to pure classes
+
+**3. Presentation** (`src/components/`)
 - `App.tsx` - Top-level coordinator
-- `useGraphModel` - Hook bridging logic and React
-- `NodeGraph` - ReactFlow visualization
-- `ParameterEditor` - Side panel for editing
+- `NodeGraph.tsx` - ReactFlow visualization
+- `ParameterEditor.tsx` - Side panel for editing
 
-This separation makes the core logic easy to test, debug, and reuse.
+This architecture makes the core logic easy to test, debug, and reuse, while keeping React integration clean and minimal.
