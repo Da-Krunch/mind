@@ -10,10 +10,53 @@ import ReactFlow, {
   Controls,
   MiniMap,
   NodeMouseHandler,
+  NodeProps,
+  Handle,
+  Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
 import './NodeGraph.css';
+
+/**
+ * Custom Node Component - Displays node with its custom color
+ * React Flow will pass the node data as props
+ * 
+ * Handles are the connection points where edges (noodles) attach
+ */
+function ColoredNode({ data, selected }: NodeProps<NodeData & { label: string }>) {
+  const nodeData = data as NodeData & { label: string };
+  
+  return (
+    <>
+      {/* Input handle (top) - where edges come IN */}
+      <Handle type="target" position={Position.Top} />
+      
+      <div 
+        className={`custom-node ${selected ? 'selected' : ''}`}
+        style={{
+          borderLeftColor: nodeData.color,
+          borderLeftWidth: '4px',
+          borderLeftStyle: 'solid',
+        }}
+      >
+        <div 
+          className="node-color-indicator"
+          style={{ backgroundColor: nodeData.color }}
+        />
+        <div className="node-label">{nodeData.label}</div>
+      </div>
+      
+      {/* Output handle (bottom) - where edges go OUT */}
+      <Handle type="source" position={Position.Bottom} />
+    </>
+  );
+}
+
+// Register custom node types
+const nodeTypes = {
+  colored: ColoredNode,
+};
 
 interface NodeGraphProps {
   onNodeClick: (nodeId: string, nodeData: NodeData) => void;
@@ -30,7 +73,7 @@ interface NodeGraphProps {
 const initialNodes: Node<NodeData>[] = [
   {
     id: '1',
-    type: 'default',
+    type: 'colored',  // Use our custom colored node type
     position: { x: 250, y: 100 },
     data: {
       title: 'Welcome',
@@ -41,7 +84,7 @@ const initialNodes: Node<NodeData>[] = [
   },
   {
     id: '2',
-    type: 'default',
+    type: 'colored',
     position: { x: 100, y: 300 },
     data: {
       title: 'Ideas',
@@ -52,7 +95,7 @@ const initialNodes: Node<NodeData>[] = [
   },
   {
     id: '3',
-    type: 'default',
+    type: 'colored',
     position: { x: 400, y: 300 },
     data: {
       title: 'Tasks',
@@ -131,6 +174,7 @@ function NodeGraph({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData 
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onPaneClick={onPaneClick}
+        nodeTypes={nodeTypes}
         fitView
         selectNodesOnDrag={false}
       >
@@ -142,9 +186,11 @@ function NodeGraph({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData 
         
         {/* Mini map for navigation */}
         <MiniMap
-          nodeColor={(node) =>
-            node.id === selectedNodeId ? '#3b82f6' : '#555'
-          }
+          nodeColor={(node) => {
+            const nodeData = node.data as NodeData;
+            return nodeData?.color || '#555';
+          }}
+          maskColor="rgba(0, 0, 0, 0.2)"
         />
       </ReactFlow>
     </div>

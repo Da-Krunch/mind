@@ -16,13 +16,11 @@ function App() {
 
   // Called when user clicks a node in the NodeGraph
   const handleNodeClick = useCallback((nodeId: string, nodeData: NodeData) => {
-    console.log('🟢 App: Node clicked:', nodeId, nodeData);
     setSelectedNode({ id: nodeId, data: nodeData });
   }, []);
 
   // Called when user edits data in the ParameterEditor
   const handleNodeDataChange = useCallback((updatedData: NodeData) => {
-    console.log('🟣 App: Data changed from editor:', updatedData);
     setSelectedNode((prev) => 
       prev ? { ...prev, data: updatedData } : null
     );

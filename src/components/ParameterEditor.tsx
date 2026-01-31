@@ -31,10 +31,8 @@ function ParameterEditor(
 
   // On node selection, update local state
   useEffect(() => {
-    console.log('🔵 Loading node data:', { nodeId, nodeData, loadedNodeId: loadedNodeIdRef.current });
     if (nodeData && nodeId !== loadedNodeIdRef.current) {
       // New node selected - load its data into local state
-      console.log('  Loading NEW node, setting local state to:', nodeData.title, nodeData.color, nodeData.description);
       setTitle(nodeData.title);
       setColor(nodeData.color);
       setDescription(nodeData.description);
@@ -47,7 +45,6 @@ function ParameterEditor(
       };
     } else if (!nodeData) {
       // No node selected - reset
-      console.log('  No node selected, resetting');
       loadedNodeIdRef.current = null;
       lastLoadedValuesRef.current = null;
     }
@@ -56,13 +53,6 @@ function ParameterEditor(
   // On param edit, propagate changes to parent component (updates the actual node)
   // This should ONLY run when local form fields change due to USER INPUT
   useEffect(() => {
-    console.log('🟡 Propagation check:', { 
-      loadedNodeId: loadedNodeIdRef.current, 
-      nodeId, 
-      localState: { title, color, description },
-      lastLoaded: lastLoadedValuesRef.current
-    });
-    
     // Only propagate if we have a loaded node and the values have changed from what we loaded
     if (loadedNodeIdRef.current && nodeId === loadedNodeIdRef.current) {
       const lastLoaded = lastLoadedValuesRef.current;
@@ -72,7 +62,6 @@ function ParameterEditor(
         lastLoaded.description !== description;
       
       if (valuesChanged) {
-        console.log('🔴 PROPAGATING changes to parent:', { title, color, description });
         onDataChange({
           title,
           color,
@@ -80,11 +69,7 @@ function ParameterEditor(
         });
         // Update lastLoaded so we don't propagate the same values again
         lastLoadedValuesRef.current = { title, color, description };
-      } else {
-        console.log('  ⏭️  Skipping propagation (values unchanged from load)');
       }
-    } else {
-      console.log('  ⏭️  Skipping propagation (no node loaded or ID mismatch)');
     }
   }, [title, color, description, onDataChange, nodeId]);
 
