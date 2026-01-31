@@ -7,6 +7,7 @@ interface ParameterEditorProps {
   nodeData: NodeData | null;      // Data of selected node
   onDataChange: (data: NodeData) => void;  // Callback when data changes
   onClose: () => void;            // Callback to deselect node
+  onDelete?: (nodeId: string) => void;  // Callback to delete node
 }
 
 /**
@@ -16,7 +17,7 @@ interface ParameterEditorProps {
  * Shows form fields for: title, color, description
  */
 function ParameterEditor(
-    { nodeId, nodeData, onDataChange, onClose }: // props
+    { nodeId, nodeData, onDataChange, onClose, onDelete }: // props
     ParameterEditorProps // type definition
 ) {
   // Local state for form fields (allows instant typing without lag)
@@ -165,6 +166,18 @@ function ParameterEditor(
             </span>
           </div>
         </div>
+
+        {/* Delete button */}
+        {onDelete && (
+          <button
+            className="delete-button"
+            onClick={() => nodeId && onDelete(nodeId)}
+            disabled={!exactlyOneSelected}
+            title="Delete this node"
+          >
+            🗑️ Delete Node
+          </button>
+        )}
       </div>
     </div>
   );

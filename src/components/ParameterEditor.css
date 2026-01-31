@@ -200,3 +200,38 @@
 .editor-content::-webkit-scrollbar-thumb:hover {
   background: #4a4a4a;
 }
+
+/* Delete button */
+.delete-button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 16px;
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+.delete-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.delete-button:disabled {
+  background: #3a3a3a;
+  border-color: #4a4a4a;
+  color: #666;
+  cursor: not-allowed;
+}
