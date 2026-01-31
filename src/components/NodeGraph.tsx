@@ -92,7 +92,8 @@ function NodeGraph({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData 
                 ...node, 
                 data: { 
                   ...selectedNodeData, 
-                  label: selectedNodeData.title  // Sync title to label for display
+                  label: selectedNodeData.title + 
+                    (selectedNodeData.description.length > 0 ? "(...)" : "") // Sync title to label for display
                 } as NodeData & { label: string }
               }
             : node
