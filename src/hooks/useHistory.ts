@@ -1,10 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { Node, Edge } from 'reactflow';
-
-interface HistoryState {
-  nodes: Node[];
-  edges: Edge[];
-}
+import { HistoryManager } from '../lib/HistoryManager';
 
 interface UseHistoryReturn {
   undo: () => void;
@@ -16,10 +12,10 @@ interface UseHistoryReturn {
 }
 
 /**
- * Custom hook for managing undo/redo history
+ * React hook wrapper for HistoryManager
  * 
- * Tracks changes to nodes and edges, allowing undo/redo up to a maximum number of steps.
- * Uses a flag-based system to capture snapshots reliably when state actually updates.
+ * Provides a React-friendly interface to the pure HistoryManager class.
+ * Handles integration with React's rendering cycle and state management.
  * 
  * @param nodes - Current nodes array
  * @param edges - Current edges array
@@ -35,90 +31,75 @@ export function useHistory(
   setEdges: (edges: Edge[]) => void,
   maxSteps: number = 16
 ): UseHistoryReturn {
-  const [history, setHistory] = useState<HistoryState[]>([
-    { nodes: [...nodes], edges: [...edges] }
-  ]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  // Create HistoryManager instance (persists across renders)
+  const managerRef = useRef<HistoryManager>(
+    new HistoryManager({ nodes, edges }, maxSteps)
+  );
   
-  // Refs for controlling capture behavior
-  const isRestoringRef = useRef(false);  // Prevent capturing during undo/redo
-  const shouldCaptureRef = useRef(false);  // Flag to indicate we want to capture next change
+  // Flag to prevent capturing during undo/redo
+  const isRestoringRef = useRef(false);
+  
+  // Flag to request snapshot capture on next render
+  const shouldCaptureRef = useRef(false);
+  
+  // State to trigger re-renders when history state changes
+  const [, forceUpdate] = useState({});
   
   // Capture snapshot when nodes or edges change (if flagged)
   useEffect(() => {
-    if (isRestoringRef.current) return;  // Don't capture during undo/redo
-    if (!shouldCaptureRef.current) return;  // Only capture when explicitly requested
+    if (isRestoringRef.current) return;
+    if (!shouldCaptureRef.current) return;
     
-    shouldCaptureRef.current = false;  // Reset flag
-    
-    setHistory(prev => {
-      // Remove any "future" history if we're not at the end
-      const newHistory = prev.slice(0, historyIndex + 1);
-      // Add new snapshot
-      newHistory.push({ nodes: [...nodes], edges: [...edges] });
-      // Limit to maxSteps + 1 total states (including current)
-      if (newHistory.length > maxSteps + 1) {
-        newHistory.shift();
-        return newHistory;
-      }
-      return newHistory;
-    });
-    setHistoryIndex(prev => Math.min(prev + 1, maxSteps));
-  }, [nodes, edges, historyIndex, maxSteps]);
+    shouldCaptureRef.current = false;
+    managerRef.current.capture({ nodes, edges });
+    forceUpdate({}); // Trigger re-render to update canUndo/canRedo
+  }, [nodes, edges]);
   
   // Request a snapshot capture (will happen on next state change)
   const captureSnapshot = useCallback(() => {
     shouldCaptureRef.current = true;
   }, []);
   
-  // Undo function
+  // Undo to previous state
   const undo = useCallback(() => {
-    if (historyIndex > 0 && history.length > 0) {
-      const newIndex = historyIndex - 1;
-      const snapshot = history[newIndex];
-      
-      // Safety check - ensure snapshot exists
-      if (!snapshot) return;
-      
+    const previous = managerRef.current.undo();
+    if (previous) {
       isRestoringRef.current = true;
-      setNodes(snapshot.nodes);
-      setEdges(snapshot.edges);
-      setHistoryIndex(newIndex);
+      setNodes(previous.nodes);
+      setEdges(previous.edges);
       
       // Reset flag after state updates
       setTimeout(() => {
         isRestoringRef.current = false;
       }, 0);
+      
+      forceUpdate({}); // Trigger re-render
     }
-  }, [historyIndex, history, setNodes, setEdges]);
+  }, [setNodes, setEdges]);
   
-  // Redo function
+  // Redo to next state
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1 && history.length > 0) {
-      const newIndex = historyIndex + 1;
-      const snapshot = history[newIndex];
-      
-      // Safety check - ensure snapshot exists
-      if (!snapshot) return;
-      
+    const next = managerRef.current.redo();
+    if (next) {
       isRestoringRef.current = true;
-      setNodes(snapshot.nodes);
-      setEdges(snapshot.edges);
-      setHistoryIndex(newIndex);
+      setNodes(next.nodes);
+      setEdges(next.edges);
       
       // Reset flag after state updates
       setTimeout(() => {
         isRestoringRef.current = false;
       }, 0);
+      
+      forceUpdate({}); // Trigger re-render
     }
-  }, [historyIndex, history, setNodes, setEdges]);
+  }, [setNodes, setEdges]);
   
   return {
     undo,
     redo,
     captureSnapshot,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1,
-    historyLength: history.length,
+    canUndo: managerRef.current.canUndo(),
+    canRedo: managerRef.current.canRedo(),
+    historyLength: managerRef.current.length(),
   };
 }
