@@ -2,10 +2,7 @@ import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
-  addEdge,
   Connection,
-  useNodesState,
-  useEdgesState,
   Background,
   Controls,
   MiniMap,
@@ -13,10 +10,11 @@ import ReactFlow, {
   NodeProps,
   Handle,
   Position,
+  OnNodesChange,
+  OnEdgesChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
-import { useHistory } from '../hooks/useHistory';
 import './NodeGraph.css';
 
 /**
@@ -72,132 +70,59 @@ const nodeTypes = {
 };
 
 interface NodeGraphProps {
+  // Graph state
+  nodes: Node[];
+  edges: Edge[];
+  
+  // ReactFlow handlers
+  onNodesChange: OnNodesChange;
+  onEdgesChange: OnEdgesChange;
+  onConnect: (connection: Connection) => void;
+  onNodeDragStop: () => void;
+  
+  // UI event handlers
   onNodeClick: (nodeId: string, nodeData: NodeData) => void;
   onPaneClick: () => void;
+  
+  // Selected node (for highlighting)
   selectedNodeId: string | null;
-  selectedNodeData: NodeData | null;
-  onCreateNode?: () => void;  // Callback to create a new node
-  onDuplicateNode?: (nodeId: string) => void;  // Callback to duplicate a node
-  onRegisterDelete?: (deleteFn: (nodeId: string) => void) => void;  // Register delete function with parent
-  onRegisterSnapshot?: (snapshotFn: () => void) => void;  // Register snapshot function with parent
+  
+  // Graph operations (called by keyboard shortcuts)
+  onCreateNode: () => void;
+  onDuplicateNode: (nodeId: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 /**
- * Initial sample nodes with our NodeData structure
- * Each node needs: id, position, data, type
- * The 'label' field is what React Flow displays on the node
- */
-const initialNodes: Node<NodeData>[] = [
-  {
-    id: '1',
-    type: 'colored',  // Use our custom colored node type
-    position: { x: 250, y: 100 },
-    data: {
-      title: 'Welcome',
-      color: '#3b82f6',
-      description: 'This is the first node. Click to select it!',
-      label: 'Welcome',  // Display title on the node
-    } as NodeData & { label: string },
-  },
-  {
-    id: '2',
-    type: 'colored',
-    position: { x: 100, y: 300 },
-    data: {
-      title: 'Ideas',
-      color: '#10b981',
-      description: 'Store your brilliant ideas here.',
-      label: 'Ideas',
-    } as NodeData & { label: string },
-  },
-  {
-    id: '3',
-    type: 'colored',
-    position: { x: 400, y: 300 },
-    data: {
-      title: 'Tasks',
-      color: '#f59e0b',
-      description: 'Keep track of things to do.',
-      label: 'Tasks',
-    } as NodeData & { label: string },
-  },
-];
-
-/**
- * Initial edges (connections) between nodes
- * Edges need: id, source (node id), target (node id)
- * All edges have consistent styling (no animation for uniformity)
- */
-const initialEdges: Edge[] = [
-  { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e1-3', source: '1', target: '3' },
-];
-
-/**
- * NodeGraph Component - The interactive node graph canvas
- * Fully owns and manages the nodes state
+ * NodeGraph Component - Presentation layer for the interactive node graph canvas
+ * 
+ * This component is now a "view" that receives all state and operations as props.
+ * It handles:
+ * - Rendering the ReactFlow canvas
+ * - User interactions (clicks, drags, keyboard shortcuts)
+ * - Delegating operations to parent via callbacks
+ * 
+ * This separation follows MVC pattern:
+ * - Model: useGraphModel hook
+ * - View: This component
+ * - Controller: App component
  */
 function NodeGraph({ 
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onNodeDragStop,
   onNodeClick, 
   onPaneClick, 
-  selectedNodeId, 
-  selectedNodeData,
+  selectedNodeId,
   onCreateNode,
   onDuplicateNode,
-  onRegisterDelete,
-  onRegisterSnapshot
+  onUndo,
+  onRedo,
 }: NodeGraphProps) {
-  // useNodesState and useEdgesState manage the nodes and edges with React state
-  // Similar to useState but with special React Flow helpers
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  
-  // History management for undo/redo (max 16 steps)
-  const { undo: handleUndo, redo: handleRedo, captureSnapshot } = useHistory(
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
-    16
-  );
-
-  // Update node data when it changes in the editor
-  // Note: Snapshot is NOT captured here - it's captured when user commits changes
-  useEffect(() => {
-    if (selectedNodeId && selectedNodeData) {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === selectedNodeId
-            ? { 
-                ...node, 
-                data: { 
-                  ...selectedNodeData, 
-                  label: selectedNodeData.title + 
-                    (selectedNodeData.description.length > 0 ? "(...)" : "") // Sync title to label for display
-                } as NodeData & { label: string }
-              }
-            : node
-        )
-      );
-    }
-  }, [selectedNodeId, selectedNodeData, setNodes]);
-
-  // Handle creating new connections when user drags from one node to another
-  const onConnect = useCallback(
-    // callback function: takes a Connection object and adds it to the edges array
-    (params: Connection) => {
-      setEdges((eds) => addEdge(params, eds));
-      captureSnapshot();
-    },
-    // dependencies: setEdges is the only thing we need to re-run onConnect
-    [setEdges, captureSnapshot]
-  );
-
-  // Handle when node drag stops (for undo history)
-  const handleNodeDragStop = useCallback(() => {
-    captureSnapshot();
-  }, [captureSnapshot]);
-
   // Handle node clicks - notify parent component
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
@@ -205,86 +130,6 @@ function NodeGraph({
     },
     [onNodeClick]
   );
-
-  // Handle creating a new node
-  const handleCreateNode = useCallback(() => {
-    const newNode: Node<NodeData> = {
-      id: `node-${Date.now()}`,
-      type: 'colored',
-      position: { 
-        x: Math.random() * 400 + 100, 
-        y: Math.random() * 400 + 100 
-      },
-      data: {
-        title: 'New Node',
-        color: '#8b5cf6',  // Purple for new nodes
-        description: '',
-        label: 'New Node',
-      } as NodeData & { label: string },
-    };
-    
-    setNodes((nds) => [...nds, newNode]);
-    captureSnapshot();
-    
-    // Notify parent if callback provided
-    if (onCreateNode) {
-      onCreateNode();
-    }
-  }, [setNodes, onCreateNode, captureSnapshot]);
-
-  // Handle duplicating a node
-  const handleDuplicateNode = useCallback(() => {
-    if (!selectedNodeId) return;
-    
-    const nodeToDuplicate = nodes.find(n => n.id === selectedNodeId);
-    if (!nodeToDuplicate) return;
-    
-    const duplicatedNode: Node<NodeData> = {
-      ...nodeToDuplicate,
-      id: `node-${Date.now()}`,
-      position: {
-        x: nodeToDuplicate.position.x + 50,
-        y: nodeToDuplicate.position.y + 50,
-      },
-      data: {
-        ...nodeToDuplicate.data,
-        title: `${nodeToDuplicate.data.title} (Copy)`,
-        label: `${nodeToDuplicate.data.title} (Copy)`,
-      } as NodeData & { label: string },
-    };
-    
-    setNodes((nds) => [...nds, duplicatedNode]);
-    captureSnapshot();
-    
-    // Notify parent if callback provided
-    if (onDuplicateNode) {
-      onDuplicateNode(selectedNodeId);
-    }
-  }, [selectedNodeId, nodes, setNodes, onDuplicateNode, captureSnapshot]);
-
-  // Handle deleting a node
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    // Remove the node
-    setNodes((nds) => nds.filter(n => n.id !== nodeId));
-    
-    // Remove any edges connected to this node
-    setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
-    captureSnapshot();
-  }, [setNodes, setEdges, captureSnapshot]);
-  
-  // Register the delete function with the parent on mount
-  useEffect(() => {
-    if (onRegisterDelete) {
-      onRegisterDelete(handleDeleteNode);
-    }
-  }, [onRegisterDelete, handleDeleteNode]);
-  
-  // Register the snapshot function with the parent on mount
-  useEffect(() => {
-    if (onRegisterSnapshot) {
-      onRegisterSnapshot(captureSnapshot);
-    }
-  }, [onRegisterSnapshot, captureSnapshot]);
   
   // Keyboard shortcuts for undo/redo and node operations
   useEffect(() => {
@@ -295,28 +140,30 @@ function NodeGraph({
       // Undo: Cmd/Ctrl+Z
       if (modifier && event.key.toLowerCase() === 'z' && !event.shiftKey) {
         event.preventDefault();
-        handleUndo();
+        onUndo();
       } 
       // Redo: Cmd/Ctrl+Y or Cmd/Ctrl+Shift+Z
       else if (modifier && (event.key.toLowerCase() === 'y' || (event.key.toLowerCase() === 'z' && event.shiftKey))) {
         event.preventDefault();
-        handleRedo();
+        onRedo();
       }
       // Create new node: Cmd/Ctrl+N
       else if (modifier && event.key.toLowerCase() === 'n') {
         event.preventDefault();
-        handleCreateNode();
+        onCreateNode();
       }
       // Duplicate node: Cmd/Ctrl+D
       else if (modifier && event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        handleDuplicateNode();
+        if (selectedNodeId) {
+          onDuplicateNode(selectedNodeId);
+        }
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, handleCreateNode, handleDuplicateNode]);
+  }, [onUndo, onRedo, onCreateNode, onDuplicateNode, selectedNodeId]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -324,14 +171,14 @@ function NodeGraph({
       <div className="node-graph-toolbar">
         <button 
           className="toolbar-button"
-          onClick={handleCreateNode}
+          onClick={onCreateNode}
           title="Create new node (Cmd/Ctrl+N)"
         >
           ➕ New Node
         </button>
         <button 
           className="toolbar-button"
-          onClick={handleDuplicateNode}
+          onClick={() => selectedNodeId && onDuplicateNode(selectedNodeId)}
           disabled={!selectedNodeId}
           title="Duplicate selected node (Cmd/Ctrl+D)"
         >
@@ -347,7 +194,7 @@ function NodeGraph({
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onPaneClick={onPaneClick}
-        onNodeDragStop={handleNodeDragStop}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         selectNodesOnDrag={false}
