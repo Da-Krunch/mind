@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NodeData } from '../types';
 import './ParameterEditor.css';
 
@@ -24,32 +24,69 @@ function ParameterEditor(
   const [color, setColor] = useState('#3b82f6');
   const [description, setDescription] = useState('');
 
-  // Track if we're loading initial data (to prevent propagating on first load)
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Use a ref to track the last values we loaded from nodeData
+  // This lets us detect if local changes are from user input or from loading
+  const lastLoadedValuesRef = useRef<{title: string, color: string, description: string} | null>(null);
+  const loadedNodeIdRef = useRef<string | null>(null);
 
   // On node selection, update local state
   useEffect(() => {
-    if (nodeData) {
+    console.log('🔵 Loading node data:', { nodeId, nodeData, loadedNodeId: loadedNodeIdRef.current });
+    if (nodeData && nodeId !== loadedNodeIdRef.current) {
+      // New node selected - load its data into local state
+      console.log('  Loading NEW node, setting local state to:', nodeData.title, nodeData.color, nodeData.description);
       setTitle(nodeData.title);
       setColor(nodeData.color);
       setDescription(nodeData.description);
-      setIsInitialLoad(true); // Mark as initial load when node changes
+      loadedNodeIdRef.current = nodeId;
+      // Remember these values - don't propagate them back
+      lastLoadedValuesRef.current = {
+        title: nodeData.title,
+        color: nodeData.color,
+        description: nodeData.description
+      };
+    } else if (!nodeData) {
+      // No node selected - reset
+      console.log('  No node selected, resetting');
+      loadedNodeIdRef.current = null;
+      lastLoadedValuesRef.current = null;
     }
   }, [nodeData, nodeId]);
 
   // On param edit, propagate changes to parent component (updates the actual node)
+  // This should ONLY run when local form fields change due to USER INPUT
   useEffect(() => {
-    if (nodeData && !isInitialLoad) {
-      onDataChange({
-        title,
-        color,
-        description,
-      });
+    console.log('🟡 Propagation check:', { 
+      loadedNodeId: loadedNodeIdRef.current, 
+      nodeId, 
+      localState: { title, color, description },
+      lastLoaded: lastLoadedValuesRef.current
+    });
+    
+    // Only propagate if we have a loaded node and the values have changed from what we loaded
+    if (loadedNodeIdRef.current && nodeId === loadedNodeIdRef.current) {
+      const lastLoaded = lastLoadedValuesRef.current;
+      const valuesChanged = !lastLoaded || 
+        lastLoaded.title !== title || 
+        lastLoaded.color !== color || 
+        lastLoaded.description !== description;
+      
+      if (valuesChanged) {
+        console.log('🔴 PROPAGATING changes to parent:', { title, color, description });
+        onDataChange({
+          title,
+          color,
+          description,
+        });
+        // Update lastLoaded so we don't propagate the same values again
+        lastLoadedValuesRef.current = { title, color, description };
+      } else {
+        console.log('  ⏭️  Skipping propagation (values unchanged from load)');
+      }
+    } else {
+      console.log('  ⏭️  Skipping propagation (no node loaded or ID mismatch)');
     }
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
-  }, [title, color, description, nodeData, onDataChange, isInitialLoad]);
+  }, [title, color, description, onDataChange, nodeId]);
 
   // Always show the editor panel, but disable fields if 0 or >1 node selected
 
