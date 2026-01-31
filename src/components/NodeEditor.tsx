@@ -24,25 +24,32 @@ function NodeEditor(
   const [color, setColor] = useState('#3b82f6');
   const [description, setDescription] = useState('');
 
-  // Update local state when a different node is selected
+  // Track if we're loading initial data (to prevent propagating on first load)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // On node selection, update local state
   useEffect(() => {
     if (nodeData) {
       setTitle(nodeData.title);
       setColor(nodeData.color);
       setDescription(nodeData.description);
+      setIsInitialLoad(true); // Mark as initial load when node changes
     }
   }, [nodeData, nodeId]);
 
-  // Propagate changes to parent component (updates the actual node)
+  // On param edit, propagate changes to parent component (updates the actual node)
   useEffect(() => {
-    if (nodeData) {
+    if (nodeData && !isInitialLoad) {
       onDataChange({
         title,
         color,
         description,
       });
     }
-  }, [title, color, description, nodeData, onDataChange]);
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [title, color, description, nodeData, onDataChange, isInitialLoad]);
 
   // Always show the editor panel, but disable fields if 0 or >1 node selected
 
