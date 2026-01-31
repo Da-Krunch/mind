@@ -27,7 +27,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Welcome',
       color: '#3b82f6',
       description: 'This is the first node. Click to select it!',
-      label: 'Welcome',  // Display title on the node
+      label: 'Welcome(...)',  // this should be generated from the title and description
     } as NodeData & { label: string },
   },
   {
@@ -38,7 +38,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Ideas',
       color: '#10b981',
       description: 'Store your brilliant ideas here.',
-      label: 'Ideas',
+      label: 'Ideas(...)', // this should be generated from the title and description
     } as NodeData & { label: string },
   },
   {
@@ -49,7 +49,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Tasks',
       color: '#f59e0b',
       description: 'Keep track of things to do.',
-      label: 'Tasks',
+      label: 'Tasks(...)', // this should be generated from the title and description
     } as NodeData & { label: string },
   },
 ];
