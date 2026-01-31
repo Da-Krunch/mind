@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { 
   Node, 
   Edge, 
@@ -11,6 +11,7 @@ import {
 } from 'reactflow';
 import { NodeData } from '../types';
 import { useHistory } from './useHistory';
+import { GraphOperations } from '../lib/GraphOperations';
 
 /**
  * Initial sample nodes with our NodeData structure
@@ -91,16 +92,16 @@ export interface GraphModel {
 /**
  * Custom hook for managing the graph data model
  * 
- * This hook encapsulates all graph state and operations, separating the data model
- * from the presentation layer (ReactFlow component). This makes the code more:
- * - Testable: Can test graph logic without rendering
- * - Maintainable: Single source of truth for graph state
- * - Reusable: Could have multiple views of the same graph
+ * This hook is now a thin React wrapper around pure business logic.
+ * It handles:
+ * - React state management (useNodesState, useEdgesState)
+ * - History integration (useHistory)
+ * - Delegating operations to GraphOperations
  * 
- * Similar to MVC pattern in other languages:
- * - This hook is the "Model" (data + business logic)
- * - NodeGraph component is the "View" (presentation)
- * - App component is the "Controller" (coordination)
+ * Architecture:
+ * - Pure logic: GraphOperations, HistoryManager (in src/lib/)
+ * - React integration: This hook
+ * - Presentation: NodeGraph component
  */
 export function useGraphModel(): GraphModel {
   // React Flow state management hooks
@@ -129,47 +130,19 @@ export function useGraphModel(): GraphModel {
   
   // Create a new node with default values
   const createNode = useCallback((): Node => {
-    const newNode: Node<NodeData> = {
-      id: `node-${Date.now()}`,
-      type: 'colored',
-      position: { 
-        x: Math.random() * 400 + 100, 
-        y: Math.random() * 400 + 100 
-      },
-      data: {
-        title: 'New Node',
-        color: '#8b5cf6',  // Purple for new nodes
-        description: '',
-        label: 'New Node',
-      } as NodeData & { label: string },
-    };
-    
-    setNodes((nds) => [...nds, newNode]);
+    const newNode = GraphOperations.createNode();
+    setNodes((nds) => GraphOperations.addNode(nds, newNode));
     captureSnapshot();
-    
     return newNode;
   }, [setNodes, captureSnapshot]);
   
   // Duplicate an existing node
   const duplicateNode = useCallback((nodeId: string): Node | null => {
-    const nodeToDuplicate = nodes.find(n => n.id === nodeId);
+    const nodeToDuplicate = GraphOperations.findNode(nodes, nodeId);
     if (!nodeToDuplicate) return null;
     
-    const duplicatedNode: Node<NodeData> = {
-      ...nodeToDuplicate,
-      id: `node-${Date.now()}`,
-      position: {
-        x: nodeToDuplicate.position.x + 50,
-        y: nodeToDuplicate.position.y + 50,
-      },
-      data: {
-        ...nodeToDuplicate.data,
-        title: `${nodeToDuplicate.data.title} (Copy)`,
-        label: `${nodeToDuplicate.data.title} (Copy)`,
-      } as NodeData & { label: string },
-    };
-    
-    setNodes((nds) => [...nds, duplicatedNode]);
+    const duplicatedNode = GraphOperations.duplicateNode(nodeToDuplicate);
+    setNodes((nds) => GraphOperations.addNode(nds, duplicatedNode));
     captureSnapshot();
     
     return duplicatedNode;
@@ -177,26 +150,14 @@ export function useGraphModel(): GraphModel {
   
   // Delete a node and all its connected edges
   const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter(n => n.id !== nodeId));
-    setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
+    setNodes((nds) => GraphOperations.removeNode(nds, nodeId));
+    setEdges((eds) => GraphOperations.removeNodeEdges(eds, nodeId));
     captureSnapshot();
   }, [setNodes, setEdges, captureSnapshot]);
   
   // Update a node's data (without capturing snapshot - let caller decide when to snapshot)
   const updateNodeData = useCallback((nodeId: string, data: NodeData) => {
-    setNodes((nds) =>
-      nds.map((node) =>
-        node.id === nodeId
-          ? {
-              ...node,
-              data: {
-                ...data,
-                label: data.title + (data.description.length > 0 ? "(...)" : "")
-              } as NodeData & { label: string }
-            }
-          : node
-      )
-    );
+    setNodes((nds) => GraphOperations.updateNodeData(nds, nodeId, data));
   }, [setNodes]);
   
   return {
