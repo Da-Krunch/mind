@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NodeData } from '../types';
-import './NodeEditor.css';
+import './ParameterEditor.css';
 
-interface NodeEditorProps {
+interface ParameterEditorProps {
   nodeId: string | null;          // ID of selected node (null if none)
   nodeData: NodeData | null;      // Data of selected node
   onDataChange: (data: NodeData) => void;  // Callback when data changes
@@ -10,14 +10,14 @@ interface NodeEditorProps {
 }
 
 /**
- * NodeEditor Component - Side panel for editing node content
+ * ParameterEditor Component - Side panel for editing node parameters
  * 
  * Enabled only when exactly 1 node is selected
  * Shows form fields for: title, color, description
  */
-function NodeEditor(
+function ParameterEditor(
     { nodeId, nodeData, onDataChange, onClose }: // props
-    NodeEditorProps // type definition
+    ParameterEditorProps // type definition
 ) {
   // Local state for form fields (allows instant typing without lag)
   const [title, setTitle] = useState('');
@@ -59,7 +59,7 @@ function NodeEditor(
   // For clarity: if not exactly one node, disable all fields and add a visual "disabled" style
   // (for greyed out effect, .disabled styling can be added in CSS)
   return (
-    <div className={`node-editor${!exactlyOneSelected ? " disabled" : ""}`}>
+    <div className={`parameter-editor${!exactlyOneSelected ? " disabled" : ""}`}>
       <div className="editor-header">
         <h2>Edit Node</h2>
         <button
@@ -148,4 +148,4 @@ function NodeEditor(
   );
 }
 
-export default NodeEditor;
+export default ParameterEditor;
