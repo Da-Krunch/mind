@@ -61,8 +61,19 @@ The side panel allows to edit the content of the node. It is enabled if and only
 - Smooth interactions and transitions
 - Test all scenarios
 
+### 7. Node Management ✨ NEW
+- Add button to create new nodes
+- Duplicate existing nodes
+- Ensure consistent edge visuals for all connections
+- Delete nodes functionality
+
+### 8. Add an undo queue, 16 steps back
+- On ctrl (command) z, undo
+- On ctrl (command) y, redo
+
 ---
 
-## 🎮 Ready When You Are
+## 🎮 Status
 
-Once you approve this approach, we'll start with Step 1!
+Phases 1-6: ✅ Complete
+Phase 7: 🚧 In Progress
