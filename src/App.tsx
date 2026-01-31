@@ -16,6 +16,9 @@ function App() {
   
   // Ref to store the delete function from NodeGraph
   const deleteNodeRef = useRef<((nodeId: string) => void) | null>(null);
+  
+  // Ref to store the snapshot function from NodeGraph
+  const snapshotRef = useRef<(() => void) | null>(null);
 
   // Called when user clicks a node in the NodeGraph
   const handleNodeClick = useCallback((nodeId: string, nodeData: NodeData) => {
@@ -48,6 +51,18 @@ function App() {
   const registerDeleteFunction = useCallback((deleteFn: (nodeId: string) => void) => {
     deleteNodeRef.current = deleteFn;
   }, []);
+  
+  // Callback to receive the snapshot function from NodeGraph
+  const registerSnapshotFunction = useCallback((snapshotFn: () => void) => {
+    snapshotRef.current = snapshotFn;
+  }, []);
+  
+  // Called when user commits changes in ParameterEditor (blur or Enter)
+  const handleCommitChanges = useCallback(() => {
+    if (snapshotRef.current) {
+      snapshotRef.current();
+    }
+  }, []);
 
   return (
     <div className="app">
@@ -57,6 +72,7 @@ function App() {
         selectedNodeId={selectedNode?.id ?? null}
         selectedNodeData={selectedNode?.data ?? null}
         onRegisterDelete={registerDeleteFunction}
+        onRegisterSnapshot={registerSnapshotFunction}
       />
       <ParameterEditor 
         nodeId={selectedNode?.id ?? null}
@@ -64,6 +80,7 @@ function App() {
         onDataChange={handleNodeDataChange}
         onClose={handleClose}
         onDelete={handleDeleteNode}
+        onCommitChanges={handleCommitChanges}
       />
     </div>
   );

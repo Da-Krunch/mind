@@ -67,9 +67,11 @@ The side panel allows to edit the content of the node. It is enabled if and only
 - Ensure consistent edge visuals for all connections
 - Delete nodes functionality
 
-### 8. Add an undo queue, 16 steps back
+### 8. Add an undo queue, 16 steps back; add other hotkeys
 - On ctrl (command) z, undo
 - On ctrl (command) y, redo
+- On ctrl (command) d, duplicate
+- On TAB, create new node
 
 ---
 

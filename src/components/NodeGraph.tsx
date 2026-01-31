@@ -16,6 +16,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
+import { useHistory } from '../hooks/useHistory';
 import './NodeGraph.css';
 
 /**
@@ -78,6 +79,7 @@ interface NodeGraphProps {
   onCreateNode?: () => void;  // Callback to create a new node
   onDuplicateNode?: (nodeId: string) => void;  // Callback to duplicate a node
   onRegisterDelete?: (deleteFn: (nodeId: string) => void) => void;  // Register delete function with parent
+  onRegisterSnapshot?: (snapshotFn: () => void) => void;  // Register snapshot function with parent
 }
 
 /**
@@ -142,14 +144,25 @@ function NodeGraph({
   selectedNodeData,
   onCreateNode,
   onDuplicateNode,
-  onRegisterDelete
+  onRegisterDelete,
+  onRegisterSnapshot
 }: NodeGraphProps) {
   // useNodesState and useEdgesState manage the nodes and edges with React state
   // Similar to useState but with special React Flow helpers
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  
+  // History management for undo/redo (max 16 steps)
+  const { undo: handleUndo, redo: handleRedo, captureSnapshot } = useHistory(
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    16
+  );
 
   // Update node data when it changes in the editor
+  // Note: Snapshot is NOT captured here - it's captured when user commits changes
   useEffect(() => {
     if (selectedNodeId && selectedNodeData) {
       setNodes((nds) =>
@@ -172,13 +185,18 @@ function NodeGraph({
   // Handle creating new connections when user drags from one node to another
   const onConnect = useCallback(
     // callback function: takes a Connection object and adds it to the edges array
-    (params: Connection) => setEdges(
-        // takes an array of edges and returns a new array with the new edge added
-        (eds) => addEdge(params, eds)
-    ),
+    (params: Connection) => {
+      setEdges((eds) => addEdge(params, eds));
+      captureSnapshot();
+    },
     // dependencies: setEdges is the only thing we need to re-run onConnect
-    [setEdges]
+    [setEdges, captureSnapshot]
   );
+
+  // Handle when node drag stops (for undo history)
+  const handleNodeDragStop = useCallback(() => {
+    captureSnapshot();
+  }, [captureSnapshot]);
 
   // Handle node clicks - notify parent component
   const handleNodeClick: NodeMouseHandler = useCallback(
@@ -206,12 +224,13 @@ function NodeGraph({
     };
     
     setNodes((nds) => [...nds, newNode]);
+    captureSnapshot();
     
     // Notify parent if callback provided
     if (onCreateNode) {
       onCreateNode();
     }
-  }, [setNodes, onCreateNode]);
+  }, [setNodes, onCreateNode, captureSnapshot]);
 
   // Handle duplicating a node
   const handleDuplicateNode = useCallback(() => {
@@ -235,12 +254,13 @@ function NodeGraph({
     };
     
     setNodes((nds) => [...nds, duplicatedNode]);
+    captureSnapshot();
     
     // Notify parent if callback provided
     if (onDuplicateNode) {
       onDuplicateNode(selectedNodeId);
     }
-  }, [selectedNodeId, nodes, setNodes, onDuplicateNode]);
+  }, [selectedNodeId, nodes, setNodes, onDuplicateNode, captureSnapshot]);
 
   // Handle deleting a node
   const handleDeleteNode = useCallback((nodeId: string) => {
@@ -249,7 +269,8 @@ function NodeGraph({
     
     // Remove any edges connected to this node
     setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
-  }, [setNodes, setEdges]);
+    captureSnapshot();
+  }, [setNodes, setEdges, captureSnapshot]);
   
   // Register the delete function with the parent on mount
   useEffect(() => {
@@ -257,6 +278,45 @@ function NodeGraph({
       onRegisterDelete(handleDeleteNode);
     }
   }, [onRegisterDelete, handleDeleteNode]);
+  
+  // Register the snapshot function with the parent on mount
+  useEffect(() => {
+    if (onRegisterSnapshot) {
+      onRegisterSnapshot(captureSnapshot);
+    }
+  }, [onRegisterSnapshot, captureSnapshot]);
+  
+  // Keyboard shortcuts for undo/redo and node operations
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? event.metaKey : event.ctrlKey;
+      
+      // Undo: Cmd/Ctrl+Z
+      if (modifier && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+      } 
+      // Redo: Cmd/Ctrl+Y or Cmd/Ctrl+Shift+Z
+      else if (modifier && (event.key.toLowerCase() === 'y' || (event.key.toLowerCase() === 'z' && event.shiftKey))) {
+        event.preventDefault();
+        handleRedo();
+      }
+      // Create new node: Cmd/Ctrl+N
+      else if (modifier && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        handleCreateNode();
+      }
+      // Duplicate node: Cmd/Ctrl+D
+      else if (modifier && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        handleDuplicateNode();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo, handleCreateNode, handleDuplicateNode]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -265,7 +325,7 @@ function NodeGraph({
         <button 
           className="toolbar-button"
           onClick={handleCreateNode}
-          title="Create new node"
+          title="Create new node (Cmd/Ctrl+N)"
         >
           ➕ New Node
         </button>
@@ -273,7 +333,7 @@ function NodeGraph({
           className="toolbar-button"
           onClick={handleDuplicateNode}
           disabled={!selectedNodeId}
-          title="Duplicate selected node"
+          title="Duplicate selected node (Cmd/Ctrl+D)"
         >
           📋 Duplicate
         </button>
@@ -287,6 +347,7 @@ function NodeGraph({
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onPaneClick={onPaneClick}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         selectNodesOnDrag={false}
