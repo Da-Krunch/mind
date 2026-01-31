@@ -13,9 +13,9 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
-import './Flow.css';
+import './NodeGraph.css';
 
-interface FlowProps {
+interface NodeGraphProps {
   onNodeClick: (nodeId: string, nodeData: NodeData) => void;
   onPaneClick: () => void;
   selectedNodeId: string | null;
@@ -25,6 +25,7 @@ interface FlowProps {
 /**
  * Initial sample nodes with our NodeData structure
  * Each node needs: id, position, data, type
+ * The 'label' field is what React Flow displays on the node
  */
 const initialNodes: Node<NodeData>[] = [
   {
@@ -35,7 +36,8 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Welcome',
       color: '#3b82f6',
       description: 'This is the first node. Click to select it!',
-    },
+      label: 'Welcome',  // Display title on the node
+    } as NodeData & { label: string },
   },
   {
     id: '2',
@@ -45,7 +47,8 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Ideas',
       color: '#10b981',
       description: 'Store your brilliant ideas here.',
-    },
+      label: 'Ideas',
+    } as NodeData & { label: string },
   },
   {
     id: '3',
@@ -55,7 +58,8 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Tasks',
       color: '#f59e0b',
       description: 'Keep track of things to do.',
-    },
+      label: 'Tasks',
+    } as NodeData & { label: string },
   },
 ];
 
@@ -69,9 +73,10 @@ const initialEdges: Edge[] = [
 ];
 
 /**
- * Flow Component - The interactive node graph canvas
+ * NodeGraph Component - The interactive node graph canvas
+ * Fully owns and manages the nodes state
  */
-function Flow({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData }: FlowProps) {
+function NodeGraph({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData }: NodeGraphProps) {
   // useNodesState and useEdgesState manage the nodes and edges with React state
   // Similar to useState but with special React Flow helpers
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -83,7 +88,13 @@ function Flow({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData }: Fl
       setNodes((nds) =>
         nds.map((node) =>
           node.id === selectedNodeId
-            ? { ...node, data: selectedNodeData }
+            ? { 
+                ...node, 
+                data: { 
+                  ...selectedNodeData, 
+                  label: selectedNodeData.title  // Sync title to label for display
+                } as NodeData & { label: string }
+              }
             : node
         )
       );
@@ -139,4 +150,4 @@ function Flow({ onNodeClick, onPaneClick, selectedNodeId, selectedNodeData }: Fl
   );
 }
 
-export default Flow;
+export default NodeGraph;

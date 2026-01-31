@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import './App.css';
-import Flow from './components/Flow';
-import NodeEditor from './components/NodeEditor';
+import NodeGraph from './components/NodeGraph';
+import ParameterEditor from './components/ParameterEditor';
 import { NodeData } from './types';
 
 // Combined state type for selected node (ensures ID and data are always in sync)
@@ -14,12 +14,12 @@ function App() {
   // State for which node is selected (null = nothing selected)
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
 
-  // Called when user clicks a node in the Flow
+  // Called when user clicks a node in the NodeGraph
   const handleNodeClick = useCallback((nodeId: string, nodeData: NodeData) => {
     setSelectedNode({ id: nodeId, data: nodeData });
   }, []);
 
-  // Called when user edits data in the NodeEditor
+  // Called when user edits data in the ParameterEditor
   const handleNodeDataChange = useCallback((updatedData: NodeData) => {
     setSelectedNode((prev) => 
       prev ? { ...prev, data: updatedData } : null
@@ -33,13 +33,13 @@ function App() {
 
   return (
     <div className="app">
-      <Flow 
+      <NodeGraph 
         onNodeClick={handleNodeClick}
         onPaneClick={handleClose}
         selectedNodeId={selectedNode?.id ?? null}
         selectedNodeData={selectedNode?.data ?? null}
       />
-      <NodeEditor 
+      <ParameterEditor 
         nodeId={selectedNode?.id ?? null}
         nodeData={selectedNode?.data ?? null}
         onDataChange={handleNodeDataChange}
