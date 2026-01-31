@@ -8,6 +8,7 @@ interface ParameterEditorProps {
   onDataChange: (data: NodeData) => void;  // Callback when data changes
   onClose: () => void;            // Callback to deselect node
   onDelete?: (nodeId: string) => void;  // Callback to delete node
+  onCommitChanges?: () => void;   // Callback when user commits changes (blur/Enter)
 }
 
 /**
@@ -17,7 +18,7 @@ interface ParameterEditorProps {
  * Shows form fields for: title, color, description
  */
 function ParameterEditor(
-    { nodeId, nodeData, onDataChange, onClose, onDelete }: // props
+    { nodeId, nodeData, onDataChange, onClose, onDelete, onCommitChanges }: // props
     ParameterEditorProps // type definition
 ) {
   // Local state for form fields (allows instant typing without lag)
@@ -79,6 +80,20 @@ function ParameterEditor(
   // Determine if we have exactly one selected node
   const exactlyOneSelected = !!nodeId && !!nodeData;
 
+  // Handle Enter key to commit changes
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && onCommitChanges) {
+      onCommitChanges();
+    }
+  };
+
+  // Handle blur to commit changes
+  const handleBlur = () => {
+    if (onCommitChanges) {
+      onCommitChanges();
+    }
+  };
+
   // For clarity: if not exactly one node, disable all fields and add a visual "disabled" style
   // (for greyed out effect, .disabled styling can be added in CSS)
   return (
@@ -106,6 +121,8 @@ function ParameterEditor(
             type="text"
             value={exactlyOneSelected?title:""}
             onChange={(e) => setTitle(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             placeholder="Node title..."
             className="input"
             disabled={!exactlyOneSelected}
@@ -122,6 +139,7 @@ function ParameterEditor(
               type="color"
               value={exactlyOneSelected?color:"#404040"}
               onChange={(e) => setColor(e.target.value)}
+              onBlur={handleBlur}
               className="color-picker"
               disabled={!exactlyOneSelected}
               style={!exactlyOneSelected ? { cursor: "not-allowed", background: "#3a3a3a" } : {}}
@@ -130,6 +148,8 @@ function ParameterEditor(
               type="text"
               value={exactlyOneSelected?color:""}
               onChange={(e) => setColor(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
               placeholder=""
               className="input color-text"
               disabled={!exactlyOneSelected}
@@ -145,6 +165,7 @@ function ParameterEditor(
             id="node-description"
             value={exactlyOneSelected?description:""}
             onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleBlur}
             placeholder="Node description..."
             className="textarea"
             disabled={!exactlyOneSelected}
