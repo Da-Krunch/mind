@@ -43,6 +43,13 @@ Web-based node graph editor with interactive nodes, connections, and parameter e
   - 46 tests for pure logic (100% coverage)
   - 9 tests for React integration layer
 
+### 9a, bugfix. Multiple select+drag is spotty
+- Can select up to two with cmd+click
+- Only one glows
+
+### 10. Batch operations
+- Set color on a batch of nodes, using the parameterEditor.
+
 ---
 
 ## Architecture
