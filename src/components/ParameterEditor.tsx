@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { Node } from 'reactflow';
 import { NodeData } from '../types';
 import './ParameterEditor.css';
 
 interface ParameterEditorProps {
-  nodeId: string | null;          // ID of selected node (null if none)
-  nodeData: NodeData | null;      // Data of selected node
-  onDataChange: (data: NodeData) => void;  // Callback when data changes
-  onClose: () => void;            // Callback to deselect node
+  nodes: Node[];                  // All nodes in the graph
+  selectedNodeIds: string[];      // IDs of selected nodes
+  onDataChange: (nodeIds: string[], data: Partial<NodeData>) => void;  // Callback when data changes
+  onClose: () => void;            // Callback to deselect nodes
   onDelete?: (nodeId: string) => void;  // Callback to delete node
   onCommitChanges?: () => void;   // Callback when user commits changes (blur/Enter)
 }
@@ -14,71 +15,101 @@ interface ParameterEditorProps {
 /**
  * ParameterEditor Component - Side panel for editing node parameters
  * 
- * Enabled only when exactly 1 node is selected
- * Shows form fields for: title, color, description
+ * Behavior based on selection:
+ * - 0 nodes: All fields disabled
+ * - 1 node: All fields enabled (title, color, description)
+ * - 2+ nodes: Only color field enabled (batch edit)
  */
 function ParameterEditor(
-    { nodeId, nodeData, onDataChange, onClose, onDelete, onCommitChanges }: // props
-    ParameterEditorProps // type definition
+    { nodes, selectedNodeIds, onDataChange, onClose, onDelete, onCommitChanges }: ParameterEditorProps
 ) {
   // Local state for form fields (allows instant typing without lag)
   const [title, setTitle] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [description, setDescription] = useState('');
 
-  // Use a ref to track the last values we loaded from nodeData
-  // This lets us detect if local changes are from user input or from loading
+  // Track what we loaded to prevent propagation loops
   const lastLoadedValuesRef = useRef<{title: string, color: string, description: string} | null>(null);
   const loadedNodeIdRef = useRef<string | null>(null);
 
-  // On node selection, update local state
+  // Get the selected nodes
+  const selectedNodes = nodes.filter(n => selectedNodeIds.includes(n.id));
+  const selectionCount = selectedNodes.length;
+  
+  // For single selection, get the node data
+  const singleNode = selectionCount === 1 ? selectedNodes[0] : null;
+
+  // On selection change (IDs change), update local state
+  // IMPORTANT: Only depend on selectedNodeIds, not nodes or selectedNodes
+  // This prevents re-loading when node data changes (which would create a loop)
   useEffect(() => {
-    if (nodeData && nodeId !== loadedNodeIdRef.current) {
-      // New node selected - load its data into local state
-      setTitle(nodeData.title);
-      setColor(nodeData.color);
-      setDescription(nodeData.description);
-      loadedNodeIdRef.current = nodeId;
-      // Remember these values - don't propagate them back
+    if (selectionCount === 1 && singleNode && singleNode.id !== loadedNodeIdRef.current) {
+      // Single node selected - load its data
+      const data = singleNode.data as NodeData;
+      setTitle(data.title);
+      setColor(data.color);
+      setDescription(data.description);
+      loadedNodeIdRef.current = singleNode.id;
       lastLoadedValuesRef.current = {
-        title: nodeData.title,
-        color: nodeData.color,
-        description: nodeData.description
+        title: data.title,
+        color: data.color,
+        description: data.description
       };
-    } else if (!nodeData) {
-      // No node selected - reset
+    } else if (selectionCount === 0) {
+      // No selection - reset
       loadedNodeIdRef.current = null;
       lastLoadedValuesRef.current = null;
+    } else if (selectionCount > 1 && loadedNodeIdRef.current !== 'multi') {
+      // Multiple nodes - only load once when entering multi-select mode
+      const firstNodeData = selectedNodes[0].data as NodeData;
+      setColor(firstNodeData.color);
+      loadedNodeIdRef.current = 'multi';
+      lastLoadedValuesRef.current = {
+        title: '',
+        color: firstNodeData.color,
+        description: ''
+      };
     }
-  }, [nodeData, nodeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeIds]);
 
-  // On param edit, propagate changes to parent component (updates the actual node)
-  // This should ONLY run when local form fields change due to USER INPUT
+  // Propagate changes to parent (only for user input, not for loading)
   useEffect(() => {
-    // Only propagate if we have a loaded node and the values have changed from what we loaded
-    if (loadedNodeIdRef.current && nodeId === loadedNodeIdRef.current) {
+    // Skip if no valid state loaded
+    if (!loadedNodeIdRef.current) return;
+    
+    if (selectionCount === 1 && loadedNodeIdRef.current === singleNode?.id) {
+      // Single node editing - propagate all changes
       const lastLoaded = lastLoadedValuesRef.current;
-      const valuesChanged = !lastLoaded || 
+      // Only propagate if we have loaded values AND they've changed (not on initial load)
+      const valuesChanged = lastLoaded && (
         lastLoaded.title !== title || 
         lastLoaded.color !== color || 
-        lastLoaded.description !== description;
+        lastLoaded.description !== description
+      );
       
       if (valuesChanged) {
-        onDataChange({
-          title,
-          color,
-          description,
-        });
-        // Update lastLoaded so we don't propagate the same values again
+        onDataChange(selectedNodeIds, { title, color, description });
         lastLoadedValuesRef.current = { title, color, description };
       }
+    } else if (selectionCount > 1 && loadedNodeIdRef.current === 'multi') {
+      // Multi-node editing - only propagate color changes
+      const lastLoaded = lastLoadedValuesRef.current;
+      // Only propagate if we have loaded values AND color has changed (not on initial load)
+      const colorChanged = lastLoaded && lastLoaded.color !== color;
+      
+      if (colorChanged) {
+        onDataChange(selectedNodeIds, { color });
+        lastLoadedValuesRef.current = { title: '', color, description: '' };
+      }
     }
-  }, [title, color, description, onDataChange, nodeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, color, description]);
 
-  // Always show the editor panel, but disable fields if 0 or >1 node selected
-
-  // Determine if we have exactly one selected node
-  const exactlyOneSelected = !!nodeId && !!nodeData;
+  // Determine UI state
+  const noSelection = selectionCount === 0;
+  const singleSelection = selectionCount === 1;
+  const multiSelection = selectionCount > 1;
 
   // Handle Enter key to commit changes
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -94,106 +125,117 @@ function ParameterEditor(
     }
   };
 
-  // For clarity: if not exactly one node, disable all fields and add a visual "disabled" style
-  // (for greyed out effect, .disabled styling can be added in CSS)
   return (
-    <div className={`parameter-editor${!exactlyOneSelected ? " disabled" : ""}`}>
+    <div className={`parameter-editor${noSelection ? " disabled" : ""}`}>
       <div className="editor-header">
-        <h2>Edit Node</h2>
+        <h2>
+          {noSelection && "No Selection"}
+          {singleSelection && "Edit Node"}
+          {multiSelection && `Edit ${selectionCount} Nodes`}
+        </h2>
         <button
           className="close-button"
           onClick={onClose}
           aria-label="Close"
-          disabled={!exactlyOneSelected}
-          style={!exactlyOneSelected ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+          disabled={noSelection}
+          style={noSelection ? { opacity: 0.5, cursor: "not-allowed" } : {}}
         >
           ✕
         </button>
       </div>
 
       <div className="editor-content">
+        {/* Show message for multi-selection */}
+        {multiSelection && (
+          <div className="multi-select-info">
+            <p>Multiple nodes selected. Only color can be edited in batch mode.</p>
+          </div>
+        )}
 
-        {/* Title field */}
+        {/* Title field - only enabled for single selection */}
         <div className="form-group">
           <label htmlFor="node-title">Title</label>
           <input
             id="node-title"
             type="text"
-            value={exactlyOneSelected?title:""}
+            value={singleSelection ? title : ""}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            placeholder="Node title..."
+            placeholder={multiSelection ? "Multiple values..." : "Node title..."}
             className="input"
-            disabled={!exactlyOneSelected}
-            style={!exactlyOneSelected ? { background: "#3a3a3a", color: "#888" } : {}}
+            disabled={!singleSelection}
+            style={!singleSelection ? { background: "#3a3a3a", color: "#888" } : {}}
           />
         </div>
 
-        {/* Color field */}
+        {/* Color field - enabled for single or multi selection */}
         <div className="form-group">
           <label htmlFor="node-color">Color</label>
           <div className="color-input-group">
             <input
               id="node-color"
               type="color"
-              value={exactlyOneSelected?color:"#404040"}
+              value={noSelection ? "#404040" : color}
               onChange={(e) => setColor(e.target.value)}
               onBlur={handleBlur}
               className="color-picker"
-              disabled={!exactlyOneSelected}
-              style={!exactlyOneSelected ? { cursor: "not-allowed", background: "#3a3a3a" } : {}}
+              disabled={noSelection}
+              style={noSelection ? { cursor: "not-allowed", background: "#3a3a3a" } : {}}
             />
             <input
               type="text"
-              value={exactlyOneSelected?color:""}
+              value={noSelection ? "" : color}
               onChange={(e) => setColor(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               placeholder=""
               className="input color-text"
-              disabled={!exactlyOneSelected}
-              style={!exactlyOneSelected ? { background: "#3a3a3a", color: "#888" } : {}}
+              disabled={noSelection}
+              style={noSelection ? { background: "#3a3a3a", color: "#888" } : {}}
             />
           </div>
         </div>
 
-        {/* Description field */}
+        {/* Description field - only enabled for single selection */}
         <div className="form-group flex-grow">
           <label htmlFor="node-description">Description</label>
           <textarea
             id="node-description"
-            value={exactlyOneSelected?description:""}
+            value={singleSelection ? description : ""}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={handleBlur}
-            placeholder="Node description..."
+            placeholder={multiSelection ? "Multiple values..." : "Node description..."}
             className="textarea"
-            disabled={!exactlyOneSelected}
-            style={!exactlyOneSelected ? { background: "#3a3a3a", color: "#888" } : {}}
+            disabled={!singleSelection}
+            style={!singleSelection ? { background: "#3a3a3a", color: "#888" } : {}}
           />
         </div>
 
         <div className="node-info">
           <div className="info-item">
-            <span className="info-label">Node ID:</span>
+            <span className="info-label">
+              {singleSelection ? "Node ID:" : "Selection:"}
+            </span>
             <span className="info-value">
-              {exactlyOneSelected ? nodeId : "—"}
+              {noSelection && "—"}
+              {singleSelection && singleNode?.id}
+              {multiSelection && `${selectionCount} nodes`}
             </span>
           </div>
           <div className="info-item">
             <span className="info-label">Characters:</span>
             <span className="info-value">
-              {exactlyOneSelected ? description.length : "—"}
+              {singleSelection ? description.length : "—"}
             </span>
           </div>
         </div>
 
-        {/* Delete button */}
-        {onDelete && (
+        {/* Delete button - only for single selection */}
+        {onDelete && singleSelection && (
           <button
             className="delete-button"
-            onClick={() => nodeId && onDelete(nodeId)}
-            disabled={!exactlyOneSelected}
+            onClick={() => singleNode && onDelete(singleNode.id)}
             title="Delete this node"
           >
             🗑️ Delete Node

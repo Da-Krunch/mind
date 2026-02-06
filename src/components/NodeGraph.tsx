@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -81,11 +81,15 @@ interface NodeGraphProps {
   onNodeDragStop: () => void;
   
   // UI event handlers
-  onNodeClick: (nodeId: string, nodeData: NodeData) => void;
+  onNodeClick: (
+    nodeId: string, 
+    nodeData: NodeData,
+    modifiers: { shift: boolean; cmdCtrl: boolean; alt: boolean }
+  ) => void;
   onPaneClick: () => void;
   
-  // Selected node (for highlighting)
-  selectedNodeId: string | null;
+  // Selected nodes (for highlighting)
+  selectedNodeIds: string[];
   
   // Graph operations (called by keyboard shortcuts)
   onCreateNode: () => void;
@@ -117,16 +121,30 @@ function NodeGraph({
   onNodeDragStop,
   onNodeClick, 
   onPaneClick, 
-  selectedNodeId,
+  selectedNodeIds,
   onCreateNode,
   onDuplicateNode,
   onUndo,
   onRedo,
 }: NodeGraphProps) {
-  // Handle node clicks - notify parent component
+  // Synchronize selectedNodeIds with ReactFlow's selected property on nodes
+  // This ensures the visual selection (glow) matches our app state
+  const nodesWithSelection = useMemo(() => {
+    return nodes.map((node) => ({
+      ...node,
+      selected: selectedNodeIds.includes(node.id),
+    }));
+  }, [nodes, selectedNodeIds]);
+
+  // Handle node clicks - notify parent component with modifier keys
   const handleNodeClick: NodeMouseHandler = useCallback(
-    (_event, node) => {
-      onNodeClick(node.id, node.data as NodeData);
+    (event, node) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      onNodeClick(node.id, node.data as NodeData, {
+        shift: event.shiftKey,
+        cmdCtrl: isMac ? event.metaKey : event.ctrlKey,
+        alt: event.altKey,
+      });
     },
     [onNodeClick]
   );
@@ -152,18 +170,18 @@ function NodeGraph({
         event.preventDefault();
         onCreateNode();
       }
-      // Duplicate node: Cmd/Ctrl+D
+      // Duplicate node: Cmd/Ctrl+D (duplicate first selected node)
       else if (modifier && event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        if (selectedNodeId) {
-          onDuplicateNode(selectedNodeId);
+        if (selectedNodeIds.length > 0) {
+          onDuplicateNode(selectedNodeIds[0]);
         }
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onUndo, onRedo, onCreateNode, onDuplicateNode, selectedNodeId]);
+  }, [onUndo, onRedo, onCreateNode, onDuplicateNode, selectedNodeIds]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -178,8 +196,8 @@ function NodeGraph({
         </button>
         <button 
           className="toolbar-button"
-          onClick={() => selectedNodeId && onDuplicateNode(selectedNodeId)}
-          disabled={!selectedNodeId}
+          onClick={() => selectedNodeIds.length > 0 && onDuplicateNode(selectedNodeIds[0])}
+          disabled={selectedNodeIds.length === 0}
           title="Duplicate selected node (Cmd/Ctrl+D)"
         >
           📋 Duplicate
@@ -187,7 +205,7 @@ function NodeGraph({
       </div>
 
       <ReactFlow
-        nodes={nodes}
+        nodes={nodesWithSelection}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
