@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -73,6 +73,7 @@ interface NodeGraphProps {
   // Graph state
   nodes: Node[];
   edges: Edge[];
+  currentFilename: string | null;
   
   // ReactFlow handlers
   onNodesChange: OnNodesChange;
@@ -91,9 +92,13 @@ interface NodeGraphProps {
   // Selected nodes (for highlighting)
   selectedNodeIds: string[];
   
-  // Graph operations (called by keyboard shortcuts)
+  // Graph operations (called by keyboard shortcuts and toolbar)
   onCreateNode: () => void;
   onDuplicateNode: (nodeId: string) => void;
+  onNew: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+  onLoad: () => void;
   onUndo: () => void;
   onRedo: () => void;
 }
@@ -115,6 +120,7 @@ interface NodeGraphProps {
 function NodeGraph({ 
   nodes,
   edges,
+  currentFilename,
   onNodesChange,
   onEdgesChange,
   onConnect,
@@ -124,6 +130,10 @@ function NodeGraph({
   selectedNodeIds,
   onCreateNode,
   onDuplicateNode,
+  onNew,
+  onSave,
+  onSaveAs,
+  onLoad,
   onUndo,
   onRedo,
 }: NodeGraphProps) {
@@ -135,6 +145,24 @@ function NodeGraph({
       selected: selectedNodeIds.includes(node.id),
     }));
   }, [nodes, selectedNodeIds]);
+
+  // State for file menu dropdown
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close file menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (fileMenuRef.current && event.target instanceof HTMLElement && !fileMenuRef.current.contains(event.target)) {
+        setFileMenuOpen(false);
+      }
+    };
+
+    if (fileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [fileMenuOpen]);
 
   // Handle node clicks - notify parent component with modifier keys
   const handleNodeClick: NodeMouseHandler = useCallback(
@@ -165,6 +193,21 @@ function NodeGraph({
         event.preventDefault();
         onRedo();
       }
+      // Save As: Cmd/Ctrl+Shift+S
+      else if (modifier && event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        onSaveAs();
+      }
+      // Save: Cmd/Ctrl+S
+      else if (modifier && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        onSave();
+      }
+      // Load: Cmd/Ctrl+O
+      else if (modifier && event.key.toLowerCase() === 'o') {
+        event.preventDefault();
+        onLoad();
+      }
       // Create new node: Cmd/Ctrl+N
       else if (modifier && event.key.toLowerCase() === 'n') {
         event.preventDefault();
@@ -181,12 +224,82 @@ function NodeGraph({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onUndo, onRedo, onCreateNode, onDuplicateNode, selectedNodeIds]);
+  }, [onUndo, onRedo, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-      {/* Toolbar for node management */}
+      {/* Toolbar for node management and file operations */}
       <div className="node-graph-toolbar">
+        {/* File menu dropdown */}
+        <div className="menu-container" ref={fileMenuRef}>
+          <button 
+            className="toolbar-button menu-button"
+            onClick={() => setFileMenuOpen(!fileMenuOpen)}
+            title="File operations"
+          >
+            File {fileMenuOpen ? '▼' : '▶'}
+          </button>
+          {fileMenuOpen && (
+            <div className="dropdown-menu">
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onNew();
+                  setFileMenuOpen(false);
+                }}
+              >
+                <span className="menu-icon">📄</span>
+                <span className="menu-label">New</span>
+                <span className="menu-shortcut"></span>
+              </button>
+              <div className="menu-separator" />
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onSave();
+                  setFileMenuOpen(false);
+                }}
+              >
+                <span className="menu-icon">💾</span>
+                <span className="menu-label">Save</span>
+                <span className="menu-shortcut">⌘S</span>
+              </button>
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onSaveAs();
+                  setFileMenuOpen(false);
+                }}
+              >
+                <span className="menu-icon">💾</span>
+                <span className="menu-label">Save As...</span>
+                <span className="menu-shortcut">⌘⇧S</span>
+              </button>
+              <div className="menu-separator" />
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onLoad();
+                  setFileMenuOpen(false);
+                }}
+              >
+                <span className="menu-icon">📂</span>
+                <span className="menu-label">Load...</span>
+                <span className="menu-shortcut">⌘O</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Current filename display */}
+        {currentFilename && (
+          <div className="toolbar-filename" title={currentFilename}>
+            📄 {currentFilename}
+          </div>
+        )}
+        
+        <div className="toolbar-separator" />
+        
         <button 
           className="toolbar-button"
           onClick={onCreateNode}
