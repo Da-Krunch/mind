@@ -22,12 +22,13 @@ export class GraphOperations {
 
   /**
    * Create a new node with default values
+   * @param position Optional position for the node (defaults to random if not provided)
    */
-  static createNode(): Node<NodeData> {
+  static createNode(position?: { x: number; y: number }): Node<NodeData> {
     return {
       id: this.generateNodeId(),
       type: 'colored',
-      position: {
+      position: position ?? {
         x: Math.random() * 400 + 100,
         y: Math.random() * 400 + 100,
       },

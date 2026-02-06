@@ -5,7 +5,10 @@ A web-based node graph editor for visual thinking and organization.
 ## Features
 
 **Node Management**
-- Create, duplicate, and delete nodes (`Cmd/Ctrl+N`, `Cmd/Ctrl+D`)
+- Edit menu with node operations
+- Create new node (`Space`)
+- Duplicate selected node (`Cmd/Ctrl+D`)
+- Delete nodes
 - Multi-selection with modifiers (Shift to add, Cmd/Ctrl to toggle, Alt to remove)
 - Color-coded selection glow
 - Drag to reposition
@@ -19,7 +22,7 @@ A web-based node graph editor for visual thinking and organization.
 
 **File I/O**
 - File menu with dropdown operations
-- New empty graph
+- New empty graph (`Cmd/Ctrl+Shift+N`)
 - Save to current file (`Cmd/Ctrl+S`) - seamlessly overwrites in modern browsers
 - Save As with new filename (`Cmd/Ctrl+Shift+S`)
 - Load from YAML file (`Cmd/Ctrl+O`)
