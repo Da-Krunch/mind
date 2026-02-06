@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { 
   Node, 
   Edge, 
@@ -12,6 +12,7 @@ import {
 import { NodeData } from '../types';
 import { useHistory } from './useHistory';
 import { GraphOperations } from '../lib/GraphOperations';
+import { FileOperations } from '../lib/FileOperations';
 
 /**
  * Initial sample nodes with our NodeData structure
@@ -68,6 +69,8 @@ export interface GraphModel {
   // State
   nodes: Node[];
   edges: Edge[];
+  currentFilename: string | null;
+  hasFileHandle: boolean;
   
   // ReactFlow event handlers
   onNodesChange: OnNodesChange;
@@ -80,6 +83,12 @@ export interface GraphModel {
   duplicateNode: (nodeId: string) => Node | null;
   deleteNode: (nodeId: string) => void;
   updateNodeData: (nodeId: string, data: NodeData) => void;
+  
+  // File operations
+  newGraph: () => void;
+  save: () => void;
+  saveAs: () => void;
+  load: () => Promise<{ success: boolean; error: string | null }>;
   
   // History operations
   undo: () => void;
@@ -107,6 +116,10 @@ export function useGraphModel(): GraphModel {
   // React Flow state management hooks
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  
+  // Track the current working file
+  const [currentFilename, setCurrentFilename] = useState<string | null>(null);
+  const fileHandleRef = useRef<FileSystemFileHandle | null>(null);
   
   // History management (undo/redo with 16 steps)
   const { undo, redo, captureSnapshot, canUndo, canRedo } = useHistory(
@@ -160,10 +173,97 @@ export function useGraphModel(): GraphModel {
     setNodes((nds) => GraphOperations.updateNodeData(nds, nodeId, data));
   }, [setNodes]);
   
+  // Create a new empty graph
+  const newGraph = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setCurrentFilename(null);
+    fileHandleRef.current = null;
+    captureSnapshot();
+  }, [setNodes, setEdges, captureSnapshot]);
+  
+  // Save to current file (or prompt if no current file)
+  const save = useCallback(async () => {
+    const yamlContent = FileOperations.serialize(nodes, edges);
+    
+    if (FileOperations.isFileSystemAccessSupported()) {
+      try {
+        // Use File System Access API for seamless saving
+        const handle = await FileOperations.saveToFileHandle(yamlContent, fileHandleRef.current ?? undefined);
+        fileHandleRef.current = handle;
+        setCurrentFilename(handle.name);
+      } catch (error) {
+        // User cancelled or error occurred
+        console.error('Save failed:', error);
+      }
+    } else {
+      // Fallback to download for unsupported browsers
+      const filename = currentFilename || 'mind-graph.yaml';
+      FileOperations.download(yamlContent, filename);
+      if (!currentFilename) {
+        setCurrentFilename(filename);
+      }
+    }
+  }, [nodes, edges, currentFilename]);
+  
+  // Always prompt for new filename
+  const saveAs = useCallback(async () => {
+    const yamlContent = FileOperations.serialize(nodes, edges);
+    
+    if (FileOperations.isFileSystemAccessSupported()) {
+      try {
+        // Always prompt for new location
+        const handle = await FileOperations.saveToFileHandle(yamlContent);
+        fileHandleRef.current = handle;
+        setCurrentFilename(handle.name);
+      } catch (error) {
+        // User cancelled or error occurred
+        console.error('Save As failed:', error);
+      }
+    } else {
+      // Fallback to download with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `mind-graph-${timestamp}.yaml`;
+      FileOperations.download(yamlContent, filename);
+      setCurrentFilename(filename);
+    }
+  }, [nodes, edges]);
+  
+  // Load graph from YAML file
+  const load = useCallback(async () => {
+    try {
+      if (FileOperations.isFileSystemAccessSupported()) {
+        // Use File System Access API
+        const { content, filename, fileHandle } = await FileOperations.loadFromFileHandle();
+        const { nodes: loadedNodes, edges: loadedEdges } = FileOperations.deserialize(content);
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        setCurrentFilename(filename);
+        fileHandleRef.current = fileHandle;
+        captureSnapshot();
+        return { success: true, error: null };
+      } else {
+        // Fallback to file input
+        const { content, filename } = await FileOperations.upload();
+        const { nodes: loadedNodes, edges: loadedEdges } = FileOperations.deserialize(content);
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        setCurrentFilename(filename);
+        captureSnapshot();
+        return { success: true, error: null };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: message };
+    }
+  }, [setNodes, setEdges, captureSnapshot]);
+  
   return {
     // State
     nodes,
     edges,
+    currentFilename,
+    hasFileHandle: fileHandleRef.current !== null,
     
     // ReactFlow handlers
     onNodesChange,
@@ -176,6 +276,12 @@ export function useGraphModel(): GraphModel {
     duplicateNode,
     deleteNode,
     updateNodeData,
+    
+    // File operations
+    newGraph,
+    save,
+    saveAs,
+    load,
     
     // History
     undo,

@@ -71,11 +71,40 @@ function App() {
     graph.captureSnapshot();
   }, [graph]);
 
+  // Called when user creates a new graph
+  const handleNew = useCallback(() => {
+    graph.newGraph();
+    setSelectedNodeIds([]);
+  }, [graph]);
+
+  // Called when user saves the graph
+  const handleSave = useCallback(() => {
+    graph.save();
+  }, [graph]);
+
+  // Called when user saves the graph with a new name
+  const handleSaveAs = useCallback(() => {
+    graph.saveAs();
+  }, [graph]);
+
+  // Called when user loads a graph
+  const handleLoad = useCallback(async () => {
+    const result = await graph.load();
+    if (!result.success && result.error) {
+      // Show error to user (could be replaced with a toast/notification system)
+      alert(`Failed to load file: ${result.error}`);
+    } else {
+      // Clear selection on successful load
+      setSelectedNodeIds([]);
+    }
+  }, [graph]);
+
   return (
     <div className="app">
       <NodeGraph 
         nodes={graph.nodes}
         edges={graph.edges}
+        currentFilename={graph.currentFilename}
         onNodesChange={graph.onNodesChange}
         onEdgesChange={graph.onEdgesChange}
         onConnect={graph.onConnect}
@@ -85,6 +114,10 @@ function App() {
         selectedNodeIds={selectedNodeIds}
         onCreateNode={graph.createNode}
         onDuplicateNode={graph.duplicateNode}
+        onNew={handleNew}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onLoad={handleLoad}
         onUndo={graph.undo}
         onRedo={graph.redo}
       />
