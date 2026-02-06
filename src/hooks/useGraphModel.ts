@@ -79,7 +79,7 @@ export interface GraphModel {
   onNodeDragStop: () => void;
   
   // Graph operations
-  createNode: () => Node;
+  createNode: (position?: { x: number; y: number }) => Node;
   duplicateNode: (nodeId: string) => Node | null;
   deleteNode: (nodeId: string) => void;
   updateNodeData: (nodeId: string, data: NodeData) => void;
@@ -142,8 +142,8 @@ export function useGraphModel(): GraphModel {
   }, [captureSnapshot]);
   
   // Create a new node with default values
-  const createNode = useCallback((): Node => {
-    const newNode = GraphOperations.createNode();
+  const createNode = useCallback((position?: { x: number; y: number }): Node => {
+    const newNode = GraphOperations.createNode(position);
     setNodes((nds) => GraphOperations.addNode(nds, newNode));
     captureSnapshot();
     return newNode;

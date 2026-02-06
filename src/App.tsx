@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { ReactFlowProvider } from 'reactflow';
 import './App.css';
 import NodeGraph from './components/NodeGraph';
 import ParameterEditor from './components/ParameterEditor';
@@ -100,36 +101,38 @@ function App() {
   }, [graph]);
 
   return (
-    <div className="app">
-      <NodeGraph 
-        nodes={graph.nodes}
-        edges={graph.edges}
-        currentFilename={graph.currentFilename}
-        onNodesChange={graph.onNodesChange}
-        onEdgesChange={graph.onEdgesChange}
-        onConnect={graph.onConnect}
-        onNodeDragStop={graph.onNodeDragStop}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handleClose}
-        selectedNodeIds={selectedNodeIds}
-        onCreateNode={graph.createNode}
-        onDuplicateNode={graph.duplicateNode}
-        onNew={handleNew}
-        onSave={handleSave}
-        onSaveAs={handleSaveAs}
-        onLoad={handleLoad}
-        onUndo={graph.undo}
-        onRedo={graph.redo}
-      />
-      <ParameterEditor 
-        nodes={graph.nodes}
-        selectedNodeIds={selectedNodeIds}
-        onDataChange={handleNodeDataChange}
-        onClose={handleClose}
-        onDelete={handleDeleteNode}
-        onCommitChanges={handleCommitChanges}
-      />
-    </div>
+    <ReactFlowProvider>
+      <div className="app">
+        <NodeGraph 
+          nodes={graph.nodes}
+          edges={graph.edges}
+          currentFilename={graph.currentFilename}
+          onNodesChange={graph.onNodesChange}
+          onEdgesChange={graph.onEdgesChange}
+          onConnect={graph.onConnect}
+          onNodeDragStop={graph.onNodeDragStop}
+          onNodeClick={handleNodeClick}
+          onPaneClick={handleClose}
+          selectedNodeIds={selectedNodeIds}
+          onCreateNode={graph.createNode}
+          onDuplicateNode={graph.duplicateNode}
+          onNew={handleNew}
+          onSave={handleSave}
+          onSaveAs={handleSaveAs}
+          onLoad={handleLoad}
+          onUndo={graph.undo}
+          onRedo={graph.redo}
+        />
+        <ParameterEditor 
+          nodes={graph.nodes}
+          selectedNodeIds={selectedNodeIds}
+          onDataChange={handleNodeDataChange}
+          onClose={handleClose}
+          onDelete={handleDeleteNode}
+          onCommitChanges={handleCommitChanges}
+        />
+      </div>
+    </ReactFlowProvider>
   );
 }
 

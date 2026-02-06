@@ -12,6 +12,7 @@ import ReactFlow, {
   Position,
   OnNodesChange,
   OnEdgesChange,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { NodeData } from '../types';
@@ -93,7 +94,7 @@ interface NodeGraphProps {
   selectedNodeIds: string[];
   
   // Graph operations (called by keyboard shortcuts and toolbar)
-  onCreateNode: () => void;
+  onCreateNode: (position?: { x: number; y: number }) => void;
   onDuplicateNode: (nodeId: string) => void;
   onNew: () => void;
   onSave: () => void;
@@ -137,6 +138,22 @@ function NodeGraph({
   onUndo,
   onRedo,
 }: NodeGraphProps) {
+  // Get ReactFlow instance for coordinate conversion
+  const { screenToFlowPosition } = useReactFlow();
+  
+  // Track mouse position for node creation
+  const mousePositionRef = useRef({ x: 0, y: 0 });
+  
+  // Update mouse position on move
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      mousePositionRef.current = { x: event.clientX, y: event.clientY };
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+  
   // Synchronize selectedNodeIds with ReactFlow's selected property on nodes
   // This ensures the visual selection (glow) matches our app state
   const nodesWithSelection = useMemo(() => {
@@ -146,27 +163,19 @@ function NodeGraph({
     }));
   }, [nodes, selectedNodeIds]);
 
-  // State for file menu dropdown
+  // State for menu dropdowns
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [editMenuOpen, setEditMenuOpen] = useState(false);
   const fileMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close file menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (fileMenuRef.current && event.target instanceof HTMLElement && !fileMenuRef.current.contains(event.target)) {
-        setFileMenuOpen(false);
-      }
-    };
-
-    if (fileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [fileMenuOpen]);
+  const editMenuRef = useRef<HTMLDivElement>(null);
 
   // Handle node clicks - notify parent component with modifier keys
   const handleNodeClick: NodeMouseHandler = useCallback(
     (event, node) => {
+      // Close any open menus when clicking on nodes
+      setFileMenuOpen(false);
+      setEditMenuOpen(false);
+      
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       onNodeClick(node.id, node.data as NodeData, {
         shift: event.shiftKey,
@@ -177,11 +186,37 @@ function NodeGraph({
     [onNodeClick]
   );
   
+  // Handle pane clicks - close menus and notify parent
+  const handlePaneClick = useCallback(
+    () => {
+      // Close any open menus when clicking on the pane
+      setFileMenuOpen(false);
+      setEditMenuOpen(false);
+      
+      onPaneClick();
+    },
+    [onPaneClick]
+  );
+  
   // Keyboard shortcuts for undo/redo and node operations
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? event.metaKey : event.ctrlKey;
+      
+      // Create new node: Space (no modifiers)
+      if (event.key === ' ' && !modifier && !event.shiftKey && !event.altKey) {
+        // Only if not typing in an input field
+        if (event.target instanceof HTMLElement && 
+            event.target.tagName !== 'INPUT' && 
+            event.target.tagName !== 'TEXTAREA') {
+          event.preventDefault();
+          // Convert screen coordinates to flow coordinates
+          const position = screenToFlowPosition(mousePositionRef.current);
+          onCreateNode(position);
+          return;
+        }
+      }
       
       // Undo: Cmd/Ctrl+Z
       if (modifier && event.key.toLowerCase() === 'z' && !event.shiftKey) {
@@ -192,6 +227,11 @@ function NodeGraph({
       else if (modifier && (event.key.toLowerCase() === 'y' || (event.key.toLowerCase() === 'z' && event.shiftKey))) {
         event.preventDefault();
         onRedo();
+      }
+      // New graph: Cmd/Ctrl+Shift+N
+      else if (modifier && event.shiftKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        onNew();
       }
       // Save As: Cmd/Ctrl+Shift+S
       else if (modifier && event.shiftKey && event.key.toLowerCase() === 's') {
@@ -208,11 +248,6 @@ function NodeGraph({
         event.preventDefault();
         onLoad();
       }
-      // Create new node: Cmd/Ctrl+N
-      else if (modifier && event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        onCreateNode();
-      }
       // Duplicate node: Cmd/Ctrl+D (duplicate first selected node)
       else if (modifier && event.key.toLowerCase() === 'd') {
         event.preventDefault();
@@ -224,7 +259,7 @@ function NodeGraph({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onUndo, onRedo, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds]);
+  }, [onUndo, onRedo, onNew, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds, screenToFlowPosition]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -250,7 +285,18 @@ function NodeGraph({
               >
                 <span className="menu-icon">📄</span>
                 <span className="menu-label">New</span>
-                <span className="menu-shortcut"></span>
+                <span className="menu-shortcut">⌘⇧N</span>
+              </button>
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onLoad();
+                  setFileMenuOpen(false);
+                }}
+              >
+                <span className="menu-icon">📂</span>
+                <span className="menu-label">Open...</span>
+                <span className="menu-shortcut">⌘O</span>
               </button>
               <div className="menu-separator" />
               <button 
@@ -275,17 +321,47 @@ function NodeGraph({
                 <span className="menu-label">Save As...</span>
                 <span className="menu-shortcut">⌘⇧S</span>
               </button>
-              <div className="menu-separator" />
+            </div>
+          )}
+        </div>
+
+        {/* Edit menu dropdown */}
+        <div className="menu-container" ref={editMenuRef}>
+          <button 
+            className="toolbar-button menu-button"
+            onClick={() => setEditMenuOpen(!editMenuOpen)}
+            title="Edit operations"
+          >
+            Edit {editMenuOpen ? '▼' : '▶'}
+          </button>
+          {editMenuOpen && (
+            <div className="dropdown-menu">
               <button 
                 className="menu-item"
                 onClick={() => {
-                  onLoad();
-                  setFileMenuOpen(false);
+                  // Convert screen coordinates to flow coordinates
+                  const position = screenToFlowPosition(mousePositionRef.current);
+                  onCreateNode(position);
+                  setEditMenuOpen(false);
                 }}
               >
-                <span className="menu-icon">📂</span>
-                <span className="menu-label">Load...</span>
-                <span className="menu-shortcut">⌘O</span>
+                <span className="menu-icon">➕</span>
+                <span className="menu-label">New Node</span>
+                <span className="menu-shortcut">Space</span>
+              </button>
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  if (selectedNodeIds.length > 0) {
+                    onDuplicateNode(selectedNodeIds[0]);
+                  }
+                  setEditMenuOpen(false);
+                }}
+                disabled={selectedNodeIds.length === 0}
+              >
+                <span className="menu-icon">📋</span>
+                <span className="menu-label">Duplicate Node</span>
+                <span className="menu-shortcut">⌘D</span>
               </button>
             </div>
           )}
@@ -297,24 +373,6 @@ function NodeGraph({
             📄 {currentFilename}
           </div>
         )}
-        
-        <div className="toolbar-separator" />
-        
-        <button 
-          className="toolbar-button"
-          onClick={onCreateNode}
-          title="Create new node (Cmd/Ctrl+N)"
-        >
-          ➕ New Node
-        </button>
-        <button 
-          className="toolbar-button"
-          onClick={() => selectedNodeIds.length > 0 && onDuplicateNode(selectedNodeIds[0])}
-          disabled={selectedNodeIds.length === 0}
-          title="Duplicate selected node (Cmd/Ctrl+D)"
-        >
-          📋 Duplicate
-        </button>
       </div>
 
       <ReactFlow
@@ -324,7 +382,7 @@ function NodeGraph({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
-        onPaneClick={onPaneClick}
+        onPaneClick={handlePaneClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
