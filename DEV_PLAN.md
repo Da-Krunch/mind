@@ -1,74 +1,34 @@
-# Mind - Development History
+# Development History
 
-Web-based node graph editor with interactive nodes, connections, and parameter editing.
+## Phases
 
-## Tech Stack
+**1-3. Foundation**
+- Vite + React + TypeScript setup
+- React Flow integration
+- Custom node types with color support
 
-- **React + TypeScript** - UI with type safety
-- **React Flow** - Graph visualization
-- **Vite** - Fast build tooling
-- **Vitest** - Testing
+**4-5. Core Features**
+- Interactive graph (drag, zoom, pan, minimap)
+- Parameter editor panel
+- Real-time updates
+- Dark theme
 
-## Development Phases
+**6-7. Node Operations**
+- Create/duplicate/delete with hotkeys
+- Edge cleanup on deletion
+- Toolbar UI
 
-### 1-3. Foundation
-- Project scaffolding with Vite + React + TypeScript
-- React Flow integration with custom node types
-- Type definitions for node data (title, color, description)
+**8. Undo/Redo**
+- 16-step history with `Cmd/Ctrl+Z` / `Cmd/Ctrl+Y`
+- Smart snapshot timing (on commit, not per keystroke)
 
-### 4-5. Core Features
-- Interactive node graph with drag, zoom, pan
-- Side panel parameter editor (enabled when 1 node selected)
-- Real-time node data updates
-- Dark theme with color-coded nodes
+**9. Architecture Refactor**
+- Extracted pure logic to `src/lib/` (HistoryManager, GraphOperations)
+- Refactored hooks to be thin wrappers
+- Comprehensive test suite (55/55 passing)
 
-### 6-7. Node Management
-- Create new nodes (`Cmd/Ctrl+N`)
-- Duplicate nodes (`Cmd/Ctrl+D`)
-- Delete nodes with edge cleanup
-- Multi-select for batch operations
-
-### 8. Undo/Redo System
-- History management (16 steps)
-- Keyboard shortcuts (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Y`)
-- Snapshot capture on all operations
-
-### 9. Testing & Architecture Refactor
-- Separated pure logic from React code
-- Created testable classes in `src/lib/`:
-  - `HistoryManager` - Undo/redo state management
-  - `GraphOperations` - Graph manipulation functions
-- Refactored hooks to be thin wrappers around pure classes
-- Test suite: 55/55 passing
-  - 46 tests for pure logic (100% coverage)
-  - 9 tests for React integration layer
-
-### 9a, bugfix. Multiple select+drag is spotty
-- Can select up to two with cmd+click
-- Only one glows
-
-### 10. Batch operations
-- Set color on a batch of nodes, using the parameterEditor.
-
----
-
-## Architecture
-
-The app follows a clean three-layer architecture:
-
-**1. Pure Logic** (`src/lib/`)
-- `HistoryManager.ts` - Undo/redo state management
-- `GraphOperations.ts` - Graph manipulation functions
-- No React dependencies, fully testable
-
-**2. React Integration** (`src/hooks/`)
-- `useHistory` - Thin wrapper connecting HistoryManager to React state
-- `useGraphModel` - Thin wrapper connecting GraphOperations to React state
-- Handles React lifecycle, delegates logic to pure classes
-
-**3. Presentation** (`src/components/`)
-- `App.tsx` - Top-level coordinator
-- `NodeGraph.tsx` - ReactFlow visualization
-- `ParameterEditor.tsx` - Side panel for editing
-
-This architecture makes the core logic easy to test, debug, and reuse, while keeping React integration clean and minimal.
+**10. Multi-Selection**
+- Modifier keys: Shift (add), Cmd/Ctrl (toggle), Alt (remove)
+- Visual selection sync between app state and ReactFlow
+- Batch color editing for multiple nodes
+- Adaptive parameter editor (0/1/N+ nodes)

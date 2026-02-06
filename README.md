@@ -1,16 +1,29 @@
 # Mind
 
-A web-based node graph editor with colored nodes, connections, and a parameter panel.
+A web-based node graph editor for visual thinking and organization.
 
 ## Features
 
+**Node Management**
 - Create, duplicate, and delete nodes (`Cmd/Ctrl+N`, `Cmd/Ctrl+D`)
-- Connect nodes with draggable edges (noodles)
-- Edit node parameters: title, color, description
-- Undo/redo history (16 steps) with `Cmd/Ctrl+Z` and `Cmd/Ctrl+Y`
+- Multi-selection with modifiers (Shift to add, Cmd/Ctrl to toggle, Alt to remove)
 - Color-coded selection glow
-- Drag nodes to reposition
-- MiniMap and zoom controls
+- Drag to reposition
+
+**Editing**
+- Parameter editor adapts to selection:
+  - 1 node: Edit all properties (title, color, description)
+  - 2+ nodes: Batch edit color only
+  - 0 nodes: All fields disabled
+- Undo/redo with 16-step history (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Y`)
+
+**Connections**
+- Connect nodes with draggable edges
+- Edges auto-update with node movement
+
+**Navigation**
+- Pan, zoom, and minimap
+- Background grid
 
 ## Tech Stack
 
@@ -19,26 +32,33 @@ React • TypeScript • React Flow • Vite • Vitest
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Run dev server
-npm run dev
-
-# Run tests
-npm test              # Watch mode
-npm test -- --run     # Run once
-npm run test:ui       # Visual test dashboard
-
-# Build for production
-npm run build
-npm run preview
+npm install       # Install dependencies
+npm run dev       # Start dev server
+npm test          # Run tests (watch mode)
+npm run test:ui   # Visual test dashboard
+npm run build     # Build for production
 ```
 
 ## Architecture
 
-- **Model**: Pure TypeScript classes in `src/lib/` (HistoryManager, GraphOperations)
-- **View**: React components (NodeGraph, ParameterEditor)
-- **Controller**: React hooks that bridge model and view
+Clean three-layer separation for testability and maintainability:
+
+**Model Layer** (`src/lib/`)
+- Pure TypeScript classes with no React dependencies
+- `HistoryManager` - Undo/redo state management
+- `GraphOperations` - Node/edge manipulation logic
+- Fully unit tested (46 tests)
+
+**Integration Layer** (`src/hooks/`)
+- Thin React hooks that bridge model and view
+- `useHistory` - Connects HistoryManager to React lifecycle
+- `useGraphModel` - Connects GraphOperations to React state
+- Integration tested (9 tests)
+
+**Presentation Layer** (`src/components/`)
+- React components for UI rendering
+- `App` - Coordinates state and selection
+- `NodeGraph` - ReactFlow canvas and interactions
+- `ParameterEditor` - Adaptive editing panel
 
 See `DEV_PLAN.md` for development history.
