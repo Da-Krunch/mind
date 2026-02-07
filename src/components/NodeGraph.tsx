@@ -70,11 +70,17 @@ const nodeTypes = {
   colored: ColoredNode,
 };
 
+export interface Breadcrumb {
+  id: string | null;
+  title: string;
+}
+
 interface NodeGraphProps {
   // Graph state
   nodes: Node[];
   edges: Edge[];
   currentFilename: string | null;
+  breadcrumbs: Breadcrumb[];
   
   // ReactFlow handlers
   onNodesChange: OnNodesChange;
@@ -102,6 +108,11 @@ interface NodeGraphProps {
   onLoad: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  
+  // Navigation operations
+  onNavigateInto?: (nodeId: string) => void;
+  onNavigateToParent?: () => void;
+  onBreadcrumbClick?: (groupId: string | null) => void;
 }
 
 /**
@@ -122,6 +133,7 @@ function NodeGraph({
   nodes,
   edges,
   currentFilename,
+  breadcrumbs,
   onNodesChange,
   onEdgesChange,
   onConnect,
@@ -137,12 +149,18 @@ function NodeGraph({
   onLoad,
   onUndo,
   onRedo,
+  onNavigateInto,
+  onNavigateToParent,
+  onBreadcrumbClick,
 }: NodeGraphProps) {
   // Get ReactFlow instance for coordinate conversion
   const { screenToFlowPosition } = useReactFlow();
   
   // Track mouse position for node creation
   const mousePositionRef = useRef({ x: 0, y: 0 });
+  
+  // Track currently hovered node for "E" key navigation
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   
   // Update mouse position on move
   useEffect(() => {
@@ -187,6 +205,33 @@ function NodeGraph({
     [onNodeClick]
   );
   
+  // Handle node double-click - navigate into node (show its children)
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      if (onNavigateInto) {
+        onNavigateInto(node.id);
+      }
+    },
+    [onNavigateInto]
+  );
+  
+  // Handle node mouse enter - track hovered node
+  const handleNodeMouseEnter: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      setHoveredNodeId(node.id);
+    },
+    []
+  );
+  
+  // Handle node mouse leave - clear hovered node
+  const handleNodeMouseLeave: NodeMouseHandler = useCallback(
+    () => {
+      setHoveredNodeId(null);
+    },
+    []
+  );
+  
   // Handle pane clicks - close menus and notify parent
   const handlePaneClick = useCallback(
     () => {
@@ -205,18 +250,36 @@ function NodeGraph({
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? event.metaKey : event.ctrlKey;
       
-      // Create new node: Space (no modifiers)
-      if (event.key === ' ' && !modifier && !event.shiftKey && !event.altKey) {
-        // Only if not typing in an input field
-        if (event.target instanceof HTMLElement && 
-            event.target.tagName !== 'INPUT' && 
-            event.target.tagName !== 'TEXTAREA') {
-          event.preventDefault();
-          // Convert screen coordinates to flow coordinates
-          const position = screenToFlowPosition(mousePositionRef.current);
-          onCreateNode(position);
-          return;
+      // Only handle non-input keys if not typing
+      const isTyping = event.target instanceof HTMLElement && 
+        (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA');
+      
+      // Navigate to parent: ESC (no modifiers, not in input)
+      if (event.key === 'Escape' && !modifier && !event.shiftKey && !event.altKey && !isTyping) {
+        event.preventDefault();
+        if (onNavigateToParent) {
+          onNavigateToParent();
         }
+        return;
+      }
+      
+      // Navigate into hovered node: E (no modifiers, not in input)
+      if (event.key.toLowerCase() === 'e' && !modifier && !event.shiftKey && !event.altKey && !isTyping) {
+        event.preventDefault();
+        // Navigate into the currently hovered node if any
+        if (hoveredNodeId && onNavigateInto) {
+          onNavigateInto(hoveredNodeId);
+        }
+        return;
+      }
+      
+      // Create new node: Space (no modifiers)
+      if (event.key === ' ' && !modifier && !event.shiftKey && !event.altKey && !isTyping) {
+        event.preventDefault();
+        // Convert screen coordinates to flow coordinates
+        const position = screenToFlowPosition(mousePositionRef.current);
+        onCreateNode(position);
+        return;
       }
       
       // Undo: Cmd/Ctrl+Z
@@ -260,7 +323,7 @@ function NodeGraph({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onUndo, onRedo, onNew, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds, screenToFlowPosition]);
+  }, [onUndo, onRedo, onNew, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds, screenToFlowPosition, onNavigateToParent, onNavigateInto, hoveredNodeId]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -383,6 +446,9 @@ function NodeGraph({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeMouseEnter={handleNodeMouseEnter}
+        onNodeMouseLeave={handleNodeMouseLeave}
         onPaneClick={handlePaneClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
@@ -404,6 +470,29 @@ function NodeGraph({
           maskColor="rgba(0, 0, 0, 0.2)"
         />
       </ReactFlow>
+      
+      {/* Breadcrumb trail for hierarchical navigation */}
+      {breadcrumbs.length > 1 && (
+        <div className="breadcrumb-trail">
+          {breadcrumbs
+            .filter(crumb => crumb.id !== null)  // Skip root
+            .map((crumb, index, filteredArray) => (
+              <span key={crumb.id}>
+                {index > 0 && <span className="breadcrumb-separator"> &gt; </span>}
+                <button
+                  className={`breadcrumb-item ${index === filteredArray.length - 1 ? 'current' : ''}`}
+                  onClick={() => {
+                    if (onBreadcrumbClick) {
+                      onBreadcrumbClick(crumb.id);
+                    }
+                  }}
+                >
+                  {crumb.title}
+                </button>
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -40,9 +40,7 @@
 - Current filename tracking and display
 - New graph operation clears file handle
 
-**8. Hierarchical Groups (Nested Mind Maps)** [IN PROGRESS]
-
-*Completed:*
+**8. Hierarchical Groups (Nested Mind Maps)** ✓
 
 - `DocumentModel` class - hierarchical structure with `parentId` and `upstreamIds`
 - Immutable operations, computed children, no view dependencies
@@ -53,12 +51,14 @@
 - `useGraphModel` refactored to use DocumentModel
 - Selection state synchronized between App and graph model
 - Node movement and selection working
+- Double-click node or hover + `E` key to navigate into (show children as siblings)
+- `ESC` key to navigate to parent group
+- Breadcrumb trail at bottom showing current path (Root > Node1 > Node2)
+- Clickable breadcrumbs for quick navigation to any level
+- Hover tracking for keyboard-driven navigation
 - Comprehensive test suite (107 tests passing)
 
-*Remaining:*
-- Double-click node handler → navigate into node (show children)
-- ESC key handler → navigate to parent group
-- Breadcrumb trail UI → show current path (Root > Node1 > Node2)
+**PHASE 8 COMPLETE**
 
 *Design Notes:*
 - Single source of truth: `parentId` on child, no `children` array

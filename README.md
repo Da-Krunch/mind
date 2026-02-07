@@ -35,9 +35,13 @@ A web-based node graph editor for visual thinking and organization.
 - Connect nodes with draggable edges
 - Edges auto-update with node movement
 
-**Navigation**
+**Hierarchical Navigation**
 - Pan, zoom, and minimap
 - Background grid
+- Double-click node or hover + press `E` to enter a group (show its children as siblings)
+- `ESC` key to navigate to parent group
+- Breadcrumb trail shows current path (e.g., Node1 > Node2) when inside a group
+- Click any breadcrumb to select that node (opens its parameters in the editor without changing navigation scope)
 
 ## Tech Stack
 
