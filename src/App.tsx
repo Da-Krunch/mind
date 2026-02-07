@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import './App.css';
 import NodeGraph from './components/NodeGraph';
@@ -9,9 +9,6 @@ import { useGraphModel } from './hooks/useGraphModel';
 function App() {
   // Graph model hook - single source of truth for graph state
   const graph = useGraphModel();
-  
-  // Track which nodes are selected (for glow effect and editing)
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
 
   // Called when user clicks a node in the NodeGraph
   const handleNodeClick = useCallback((
@@ -19,34 +16,32 @@ function App() {
     _nodeData: NodeData,
     modifiers: { shift: boolean; cmdCtrl: boolean; alt: boolean }
   ) => {
-    setSelectedNodeIds((prev) => {
-      let newSelection: string[];
-      if (modifiers.alt) {
-        // Alt: Remove from selection
+    const prev = graph.selectedNodeIds;
+    let newSelection: string[];
+    
+    if (modifiers.alt) {
+      // Alt: Remove from selection
+      newSelection = prev.filter(id => id !== nodeId);
+    } else if (modifiers.cmdCtrl) {
+      // Cmd/Ctrl: Toggle selection
+      if (prev.includes(nodeId)) {
         newSelection = prev.filter(id => id !== nodeId);
-      } else if (modifiers.cmdCtrl) {
-        // Cmd/Ctrl: Toggle selection
-        if (prev.includes(nodeId)) {
-          newSelection = prev.filter(id => id !== nodeId);
-        } else {
-          newSelection = [...prev, nodeId];
-        }
-      } else if (modifiers.shift) {
-        // Shift: Add to selection
-        if (!prev.includes(nodeId)) {
-          newSelection = [...prev, nodeId];
-        } else {
-          newSelection = prev;
-        }
       } else {
-        // No modifier: Replace selection
-        newSelection = [nodeId];
+        newSelection = [...prev, nodeId];
       }
-      
-      // Sync with graph model
-      graph.setSelectedNodeIds(newSelection);
-      return newSelection;
-    });
+    } else if (modifiers.shift) {
+      // Shift: Add to selection
+      if (!prev.includes(nodeId)) {
+        newSelection = [...prev, nodeId];
+      } else {
+        newSelection = prev;
+      }
+    } else {
+      // No modifier: Replace selection
+      newSelection = [nodeId];
+    }
+    
+    graph.setSelectedNodeIds(newSelection);
   }, [graph]);
 
   // Called when user edits data in the ParameterEditor
@@ -64,17 +59,15 @@ function App() {
 
   // Called when user closes the editor or clicks canvas
   const handleClose = useCallback(() => {
-    setSelectedNodeIds([]);
     graph.setSelectedNodeIds([]);
   }, [graph]);
 
   // Called when user deletes a node from ParameterEditor
   const handleDeleteNode = useCallback((nodeId: string) => {
     graph.deleteNode(nodeId);
-    const newSelection = selectedNodeIds.filter(id => id !== nodeId);
-    setSelectedNodeIds(newSelection);
+    const newSelection = graph.selectedNodeIds.filter(id => id !== nodeId);
     graph.setSelectedNodeIds(newSelection);
-  }, [graph, selectedNodeIds]);
+  }, [graph]);
   
   // Called when user commits changes in ParameterEditor (blur or Enter)
   const handleCommitChanges = useCallback(() => {
@@ -84,7 +77,6 @@ function App() {
   // Called when user creates a new graph
   const handleNew = useCallback(() => {
     graph.newGraph();
-    setSelectedNodeIds([]);
     // graph.newGraph() already clears selection internally
   }, [graph]);
 
@@ -101,13 +93,22 @@ function App() {
   // Called when user loads a graph
   const handleLoad = useCallback(async () => {
     const result = await graph.load();
-    if (result.success) {
-      // Clear selection on successful load
-      setSelectedNodeIds([]);
-      // graph.load() already clears selection internally
-    } else {
+    if (!result.success) {
       // Show error to user (could be replaced with a toast/notification system)
       alert(`Failed to load file: ${result.error}`);
+    }
+    // graph.load() already clears selection internally
+  }, [graph]);
+
+  // Called when user clicks a breadcrumb
+  // Selects the node without changing the current navigation scope
+  const handleBreadcrumbClick = useCallback((groupId: string | null) => {
+    if (groupId === null) {
+      // Clicked "Root" - clear selection but stay at current scope
+      graph.setSelectedNodeIds([]);
+    } else {
+      // Clicked a node in the path - select it without navigating
+      graph.setSelectedNodeIds([groupId]);
     }
   }, [graph]);
 
@@ -118,13 +119,14 @@ function App() {
           nodes={graph.nodes}
           edges={graph.edges}
           currentFilename={graph.currentFilename}
+          breadcrumbs={graph.breadcrumbs}
           onNodesChange={graph.onNodesChange}
           onEdgesChange={graph.onEdgesChange}
           onConnect={graph.onConnect}
           onNodeDragStop={graph.onNodeDragStop}
           onNodeClick={handleNodeClick}
           onPaneClick={handleClose}
-          selectedNodeIds={selectedNodeIds}
+          selectedNodeIds={graph.selectedNodeIds}
           onCreateNode={graph.createNode}
           onDuplicateNode={graph.duplicateNode}
           onNew={handleNew}
@@ -133,10 +135,13 @@ function App() {
           onLoad={handleLoad}
           onUndo={graph.undo}
           onRedo={graph.redo}
+          onNavigateInto={graph.navigateInto}
+          onNavigateToParent={graph.navigateToParent}
+          onBreadcrumbClick={handleBreadcrumbClick}
         />
         <ParameterEditor 
-          nodes={graph.nodes}
-          selectedNodeIds={selectedNodeIds}
+          nodes={graph.allNodes}
+          selectedNodeIds={graph.selectedNodeIds}
           onDataChange={handleNodeDataChange}
           onClose={handleClose}
           onDelete={handleDeleteNode}

@@ -52,13 +52,21 @@ function createInitialDocument(): DocumentModel {
   return newDoc;
 }
 
+export interface Breadcrumb {
+  id: string | null;
+  title: string;
+}
+
 export interface GraphModel {
   // State
-  nodes: Node[];  // ReactFlow nodes (computed from document)
+  nodes: Node[];  // Visible ReactFlow nodes at current level (computed from document)
+  allNodes: Node[];  // All nodes in document (for ParameterEditor)
   edges: Edge[];  // ReactFlow edges (computed from document)
   currentFilename: string | null;
   hasFileHandle: boolean;
   currentGroupId: string | null;  // Current navigation context
+  breadcrumbs: Breadcrumb[];  // Current path for breadcrumb display
+  selectedNodeIds: string[];  // Currently selected node IDs
   
   // ReactFlow event handlers
   onNodesChange: OnNodesChange;
@@ -132,6 +140,7 @@ export function useGraphModel(): GraphModel {
   );
   
   // Convert document to ReactFlow format for rendering
+  // Visible nodes and edges for ReactFlow rendering
   const nodes = useMemo(
     () => Adapter.getVisibleNodes(document, currentGroupId, selectedNodeIds),
     [document, currentGroupId, selectedNodeIds]
@@ -141,6 +150,39 @@ export function useGraphModel(): GraphModel {
     () => Adapter.getVisibleEdges(document, currentGroupId),
     [document, currentGroupId]
   );
+  
+  // All nodes for ParameterEditor (so it can edit nodes not visible at current level, e.g., breadcrumb selections)
+  const allNodes = useMemo(
+    () => document.getAllNodes().map(node => Adapter.toReactFlowNode(node, selectedNodeIds.includes(node.id))),
+    [document, selectedNodeIds]
+  );
+  
+  // Compute breadcrumb trail for current navigation context
+  const breadcrumbs = useMemo((): Breadcrumb[] => {
+    if (currentGroupId === null) {
+      return [{ id: null, title: 'Root' }];
+    }
+    
+    const chain = document.getParentChain(currentGroupId);
+    const trail: Breadcrumb[] = [{ id: null, title: 'Root' }];
+    
+    // Add parents in order from root to current
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const nodeId = chain[i];
+      const node = document.findNode(nodeId);
+      if (node) {
+        trail.push({ id: nodeId, title: node.data.title });
+      }
+    }
+    
+    // Add current node
+    const currentNode = document.findNode(currentGroupId);
+    if (currentNode) {
+      trail.push({ id: currentGroupId, title: currentNode.data.title });
+    }
+    
+    return trail;
+  }, [document, currentGroupId]);
   
   // Handle ReactFlow node changes (position updates, deletions, etc.)
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -341,10 +383,13 @@ export function useGraphModel(): GraphModel {
   return {
     // State
     nodes,
+    allNodes,
     edges,
     currentFilename,
     hasFileHandle: fileHandleRef.current !== null,
     currentGroupId,
+    breadcrumbs,
+    selectedNodeIds,
     
     // ReactFlow handlers
     onNodesChange,

@@ -273,3 +273,47 @@
     stroke-dashoffset: -10;
   }
 }
+
+/* Breadcrumb trail for navigation */
+.breadcrumb-trail {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: #2a2a2a;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb-item {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.breadcrumb-item:hover {
+  background: #3a3a3a;
+  color: #60a5fa;
+}
+
+.breadcrumb-item.current {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: #555;
+  font-size: 12px;
+  user-select: none;
+}
