@@ -91,12 +91,14 @@ function App() {
   // Called when user loads a graph
   const handleLoad = useCallback(async () => {
     const result = await graph.load();
-    if (!result.success && result.error) {
-      // Show error to user (could be replaced with a toast/notification system)
-      alert(`Failed to load file: ${result.error}`);
-    } else {
+    if (result.success) {
+      // TypeScript knows result.data exists here (though it's void)
       // Clear selection on successful load
       setSelectedNodeIds([]);
+    } else {
+      // TypeScript knows result.error exists here
+      // Show error to user (could be replaced with a toast/notification system)
+      alert(`Failed to load file: ${result.error}`);
     }
   }, [graph]);
 

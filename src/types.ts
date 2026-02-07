@@ -21,6 +21,26 @@ export function getNodeLabel(data: NodeData): string {
 }
 
 /**
+ * Result type for operations that can succeed or fail
+ * 
+ * This is a discriminated union - TypeScript can narrow the type based on 'success'
+ * Similar to Rust's Result<T, E> or Haskell's Either
+ * 
+ * @example
+ * const result = await loadFile();
+ * if (result.success) {
+ *   // TypeScript knows result.data exists here
+ *   console.log(result.data);
+ * } else {
+ *   // TypeScript knows result.error exists here
+ *   console.error(result.error);
+ * }
+ */
+export type Result<T, E = string> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+/**
  * Note: React Flow has its own Node type that we'll use,
  * which includes: id, position, data (our NodeData), type, etc.
  */
