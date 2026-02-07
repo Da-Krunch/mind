@@ -58,16 +58,6 @@
 - Hover tracking for keyboard-driven navigation
 - Comprehensive test suite (107 tests passing)
 
-**PHASE 8 COMPLETE**
-
-*Design Notes:*
-- Single source of truth: `parentId` on child, no `children` array
-- Edges as `upstreamIds` on downstream node (not separate Edge objects)
-- ReactFlow shows nodes where `parentId === currentGroupId`
-- Creating nodes sets `parentId` to `currentGroupId`
-- Moving nodes between groups changes `parentId` (undoable)
-- Selection cleared when navigating between groups
-
 --- Current Position
 
 **9. Cut/Copy/Paste**
