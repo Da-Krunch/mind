@@ -90,7 +90,7 @@ edges: []
       expect(() => FileOperations.deserialize(yaml)).toThrow('version 999 is newer');
     });
 
-    it('should handle missing label by using title', () => {
+    it('should ignore label field from file (computed on-the-fly)', () => {
       const yaml = `
 version: 1
 nodes:
@@ -103,12 +103,14 @@ nodes:
       title: NoLabel
       color: "#fff"
       description: ""
+      label: "OldLabel"
 edges: []
 `;
 
       const result = FileOperations.deserialize(yaml);
 
-      expect(result.nodes[0].data.label).toBe('NoLabel');
+      // Label is not stored in NodeData - it's computed on-the-fly
+      expect(result.nodes[0].data).not.toHaveProperty('label');
     });
   });
 

@@ -15,7 +15,7 @@ import ReactFlow, {
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { NodeData } from '../types';
+import { NodeData, getNodeLabel } from '../types';
 import './NodeGraph.css';
 
 /**
@@ -24,8 +24,8 @@ import './NodeGraph.css';
  * 
  * Handles are the connection points where edges (noodles) attach
  */
-function ColoredNode({ data, selected }: NodeProps<NodeData & { label: string }>) {
-  const nodeData = data as NodeData & { label: string };
+function ColoredNode({ data, selected }: NodeProps<NodeData>) {
+  const nodeData = data;
   
   // Convert hex color to rgba for the glow effect
   const hexToRgba = (hex: string, alpha: number) => {
@@ -56,7 +56,7 @@ function ColoredNode({ data, selected }: NodeProps<NodeData & { label: string }>
           className="node-color-indicator"
           style={{ backgroundColor: nodeData.color }}
         />
-        <div className="node-label">{nodeData.label}</div>
+        <div className="node-label">{getNodeLabel(nodeData)}</div>
       </div>
       
       {/* Output handle (bottom) - where edges go OUT */}
@@ -177,7 +177,8 @@ function NodeGraph({
       setEditMenuOpen(false);
       
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      onNodeClick(node.id, node.data as NodeData, {
+      const nodeData = node.data as NodeData;
+      onNodeClick(node.id, nodeData, {
         shift: event.shiftKey,
         cmdCtrl: isMac ? event.metaKey : event.ctrlKey,
         alt: event.altKey,

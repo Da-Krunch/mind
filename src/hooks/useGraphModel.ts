@@ -17,7 +17,6 @@ import { FileOperations } from '../lib/FileOperations';
 /**
  * Initial sample nodes with our NodeData structure
  * Each node needs: id, position, data, type
- * The 'label' field is what React Flow displays on the node
  */
 const initialNodes: Node<NodeData>[] = [
   {
@@ -28,8 +27,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Welcome',
       color: '#3b82f6',
       description: 'This is the first node. Click to select it!',
-      label: 'Welcome(...)',  // this should be generated from the title and description
-    } as NodeData & { label: string },
+    },
   },
   {
     id: '2',
@@ -39,8 +37,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Ideas',
       color: '#10b981',
       description: 'Store your brilliant ideas here.',
-      label: 'Ideas(...)', // this should be generated from the title and description
-    } as NodeData & { label: string },
+    },
   },
   {
     id: '3',
@@ -50,8 +47,7 @@ const initialNodes: Node<NodeData>[] = [
       title: 'Tasks',
       color: '#f59e0b',
       description: 'Keep track of things to do.',
-      label: 'Tasks(...)', // this should be generated from the title and description
-    } as NodeData & { label: string },
+    },
   },
 ];
 
@@ -79,8 +75,8 @@ export interface GraphModel {
   onNodeDragStop: () => void;
   
   // Graph operations
-  createNode: (position?: { x: number; y: number }) => Node;
-  duplicateNode: (nodeId: string) => Node | null;
+  createNode: (position?: { x: number; y: number }) => Node<NodeData>;
+  duplicateNode: (nodeId: string) => Node<NodeData> | null;
   deleteNode: (nodeId: string) => void;
   updateNodeData: (nodeId: string, data: NodeData) => void;
   
@@ -101,7 +97,7 @@ export interface GraphModel {
 /**
  * Custom hook for managing the graph data model
  * 
- * This hook is now a thin React wrapper around pure business logic.
+ * This hook is a thin React wrapper around pure business logic.
  * It handles:
  * - React state management (useNodesState, useEdgesState)
  * - History integration (useHistory)
@@ -142,7 +138,7 @@ export function useGraphModel(): GraphModel {
   }, [captureSnapshot]);
   
   // Create a new node with default values
-  const createNode = useCallback((position?: { x: number; y: number }): Node => {
+  const createNode = useCallback((position?: { x: number; y: number }): Node<NodeData> => {
     const newNode = GraphOperations.createNode(position);
     setNodes((nds) => GraphOperations.addNode(nds, newNode));
     captureSnapshot();
@@ -150,11 +146,11 @@ export function useGraphModel(): GraphModel {
   }, [setNodes, captureSnapshot]);
   
   // Duplicate an existing node
-  const duplicateNode = useCallback((nodeId: string): Node | null => {
+  const duplicateNode = useCallback((nodeId: string): Node<NodeData> | null => {
     const nodeToDuplicate = GraphOperations.findNode(nodes, nodeId);
     if (!nodeToDuplicate) return null;
     
-    const duplicatedNode = GraphOperations.duplicateNode(nodeToDuplicate);
+    const duplicatedNode = GraphOperations.duplicateNode(nodeToDuplicate as Node<NodeData>);
     setNodes((nds) => GraphOperations.addNode(nds, duplicatedNode));
     captureSnapshot();
     

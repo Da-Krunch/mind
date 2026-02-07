@@ -1,5 +1,6 @@
 import { Node, Edge } from 'reactflow';
 import * as yaml from 'js-yaml';
+import { NodeData, getNodeLabel } from '../types';
 
 /**
  * Current file format version
@@ -48,20 +49,23 @@ export class FileOperations {
   /**
    * Convert nodes and edges to YAML string
    */
-  static serialize(nodes: Node[], edges: Edge[]): string {
+  static serialize(nodes: Node<NodeData>[], edges: Edge[]): string {
     const fileData: MindFileFormat = {
       version: FILE_FORMAT_VERSION,
-      nodes: nodes.map(node => ({
-        id: node.id,
-        type: node.type || 'colored',
-        position: node.position,
-        data: {
-          title: (node.data as any).title || '',
-          color: (node.data as any).color || '#3b82f6',
-          description: (node.data as any).description || '',
-          label: (node.data as any).label,
-        },
-      })),
+      nodes: nodes.map(node => {
+        const data = node.data as NodeData;
+        return {
+          id: node.id,
+          type: node.type || 'colored',
+          position: node.position,
+          data: {
+            title: data.title,
+            color: data.color,
+            description: data.description,
+            label: getNodeLabel(data),  // Compute label on-the-fly
+          },
+        };
+      }),
       edges: edges.map(edge => ({
         id: edge.id,
         source: edge.source,
@@ -81,7 +85,7 @@ export class FileOperations {
    * Parse YAML string into nodes and edges
    * Throws error if version is incompatible
    */
-  static deserialize(yamlString: string): { nodes: Node[]; edges: Edge[] } {
+  static deserialize(yamlString: string): { nodes: Node<NodeData>[]; edges: Edge[] } {
     const fileData = yaml.load(yamlString) as MindFileFormat;
 
     // Version check
@@ -96,8 +100,8 @@ export class FileOperations {
       );
     }
 
-    // Convert to React Flow format
-    const nodes: Node[] = fileData.nodes.map(node => ({
+    // Convert to React Flow format (label is ignored from file, computed on-the-fly)
+    const nodes: Node<NodeData>[] = fileData.nodes.map(node => ({
       id: node.id,
       type: node.type,
       position: node.position,
@@ -105,7 +109,6 @@ export class FileOperations {
         title: node.data.title,
         color: node.data.color,
         description: node.data.description,
-        label: node.data.label || node.data.title,
       },
     }));
 
