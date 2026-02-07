@@ -27,6 +27,14 @@
 - Create files only when explicitly requested or clearly needed
 - Don't skip ahead in the development phases
 
+### Architecture & Separation of Concerns
+- Keep layers independent: Model, View, Controller
+- **Never** import ReactFlow types in model/business logic (e.g., DocumentModel, GraphOperations)
+- Model layer should be pure TypeScript with no view dependencies
+- Plan for future: both backend and renderer may be replaced
+- Create conversion/adapter functions in view layer when needed
+- Test model logic independently without view library dependencies
+
 ## React/TypeScript Conventions
 - Use arrow functions for components
 - Use `interface` for props and data types

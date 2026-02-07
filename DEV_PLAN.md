@@ -47,28 +47,39 @@
 
 *Document Model:*
 - New `DocumentModel` class in `src/lib/` - canonical source of truth
-- Nodes have `parentId: string | null` (null = root level)
-- Nodes have `children: string[]` array of child IDs
-- Edges are stored per-group (only visible within current context)
-- File I/O serializes/deserializes full hierarchy
+- Each node has:
+  - `parentId: string | null` (null = root level)
+  - `upstreamIds: string[]` - node IDs this node connects FROM (replaces Edge type)
+- No `children` array - compute children on-demand by scanning `parentId`
+- No separate Edge type - edges encoded as downstream node's `upstreamIds`
+- File I/O serializes flat node array with parent/upstream relationships
 
 *Navigation:*
 - App tracks `currentGroupId: string | null` (null = root)
-- Double-click node → navigate into it (show its children)
+- Double-click node → navigate into it (show its children as siblings)
 - ESC key → navigate to parent (or stay at root)
-- Breadcrumb trail shows current path (Root > Node1 > Node2)
-- Show the breadcrumb at the bottom of the screen
+- Breadcrumb trail at bottom shows current path (Root > Node1 > Node2)
 
 *View Layer:*
-- ReactFlow shows only nodes at current level (children of `currentGroupId`)
-- Edges shown only between visible nodes at current level
-- Transform `DocumentModel` → ReactFlow nodes/edges based on current context
+- ReactFlow shows nodes where `parentId === currentGroupId`
+- ReactFlow edges generated from visible nodes' `upstreamIds`
+- Transform: DocumentModel → ReactFlow (filter by parent, generate edges)
+- Reverse: ReactFlow edge creation → update downstream node's `upstreamIds`
+
+*Rationale:*
+- Single source of truth: parent stored once on child
+- Edges "owned" by downstream node (natural direction)
+- O(n) child scanning acceptable for typical sizes
+- Simpler serialization (just nodes, no edge array)
 
 *Implications:*
-- Selected node references must be validated against current context
-- Undo/redo must track group navigation state
-- Creating nodes adds them to current group
-- Moving nodes between groups requires special operation
+- Navigation (`currentGroupId`) is ephemeral UI state - not saved, not undoable
+- Undo/redo only tracks document changes (nodes, properties, relationships)
+- Creating nodes sets `parentId` to `currentGroupId`
+- Moving nodes between groups = change `parentId` (this IS undoable)
+- Deleting node removes its ID from all nodes' `upstreamIds`
+- Edge creation adds source ID to target's `upstreamIds`
+- Selection cleared when navigating to different group
 
 **9. Cut/Copy/Paste
 - Add edit menu, move "new node" and "duplicate" in there.
