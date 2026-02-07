@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { GraphOperations } from './GraphOperations';
+import * as GraphOps from './GraphOperations';
 import { Node, Edge } from 'reactflow';
 import { NodeData, getNodeLabel } from '../types';
 
 describe('GraphOperations', () => {
   describe('generateNodeId', () => {
     it('should generate unique IDs', () => {
-      const id1 = GraphOperations.generateNodeId();
-      const id2 = GraphOperations.generateNodeId();
+      const id1 = GraphOps.generateNodeId();
+      const id2 = GraphOps.generateNodeId();
       
       expect(id1).toBeTruthy();
       expect(id2).toBeTruthy();
@@ -15,14 +15,14 @@ describe('GraphOperations', () => {
     });
 
     it('should generate IDs with node- prefix', () => {
-      const id = GraphOperations.generateNodeId();
+      const id = GraphOps.generateNodeId();
       expect(id).toMatch(/^node-/);
     });
   });
 
   describe('createNode', () => {
     it('should create a node with default values', () => {
-      const node = GraphOperations.createNode();
+      const node = GraphOps.createNode();
       
       expect(node.id).toBeTruthy();
       expect(node.type).toBe('colored');
@@ -32,8 +32,8 @@ describe('GraphOperations', () => {
     });
 
     it('should create nodes with different positions', () => {
-      const node1 = GraphOperations.createNode();
-      const node2 = GraphOperations.createNode();
+      const node1 = GraphOps.createNode();
+      const node2 = GraphOps.createNode();
       
       // Very unlikely to have exact same random position
       const samePosition = 
@@ -44,8 +44,8 @@ describe('GraphOperations', () => {
     });
 
     it('should create nodes with unique IDs', () => {
-      const node1 = GraphOperations.createNode();
-      const node2 = GraphOperations.createNode();
+      const node1 = GraphOps.createNode();
+      const node2 = GraphOps.createNode();
       
       expect(node1.id).not.toBe(node2.id);
     });
@@ -64,7 +64,7 @@ describe('GraphOperations', () => {
         },
       };
 
-      const duplicate = GraphOperations.duplicateNode(original);
+      const duplicate = GraphOps.duplicateNode(original);
 
       expect(duplicate.id).not.toBe(original.id);
       expect(duplicate.position.x).toBe(150);
@@ -85,7 +85,7 @@ describe('GraphOperations', () => {
         },
       };
 
-      const duplicate = GraphOperations.duplicateNode(original);
+      const duplicate = GraphOps.duplicateNode(original);
       expect(duplicate.type).toBe('colored');
     });
   });
@@ -100,7 +100,7 @@ describe('GraphOperations', () => {
         data: {},
       };
 
-      const result = GraphOperations.addNode(nodes, newNode);
+      const result = GraphOps.addNode(nodes, newNode);
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('1');
@@ -117,7 +117,7 @@ describe('GraphOperations', () => {
         data: {},
       };
 
-      const result = GraphOperations.addNode(nodes, newNode);
+      const result = GraphOps.addNode(nodes, newNode);
 
       expect(result).toHaveLength(2);
       expect(result[1].id).toBe('2');
@@ -127,7 +127,7 @@ describe('GraphOperations', () => {
       const nodes: Node[] = [{ id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' }];
       const newNode: Node = { id: '2', position: { x: 0, y: 0 }, data: {}, type: 'default' };
 
-      GraphOperations.addNode(nodes, newNode);
+      GraphOps.addNode(nodes, newNode);
 
       expect(nodes).toHaveLength(1);
     });
@@ -140,7 +140,7 @@ describe('GraphOperations', () => {
         { id: '2', position: { x: 100, y: 100 }, data: {}, type: 'default' },
       ];
 
-      const result = GraphOperations.removeNode(nodes, '1');
+      const result = GraphOps.removeNode(nodes, '1');
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('2');
@@ -151,7 +151,7 @@ describe('GraphOperations', () => {
         { id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' },
       ];
 
-      const result = GraphOperations.removeNode(nodes, 'non-existent');
+      const result = GraphOps.removeNode(nodes, 'non-existent');
 
       expect(result).toHaveLength(1);
     });
@@ -161,7 +161,7 @@ describe('GraphOperations', () => {
         { id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' },
       ];
 
-      GraphOperations.removeNode(nodes, '1');
+      GraphOps.removeNode(nodes, '1');
 
       expect(nodes).toHaveLength(1);
     });
@@ -175,7 +175,7 @@ describe('GraphOperations', () => {
         { id: 'e3-4', source: '3', target: '4' },
       ];
 
-      const result = GraphOperations.removeNodeEdges(edges, '2');
+      const result = GraphOps.removeNodeEdges(edges, '2');
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('e3-4');
@@ -186,7 +186,7 @@ describe('GraphOperations', () => {
         { id: 'e1-2', source: '1', target: '2' },
       ];
 
-      const result = GraphOperations.removeNodeEdges(edges, '3');
+      const result = GraphOps.removeNodeEdges(edges, '3');
 
       expect(result).toHaveLength(1);
     });
@@ -196,7 +196,7 @@ describe('GraphOperations', () => {
         { id: 'e1-2', source: '1', target: '2' },
       ];
 
-      GraphOperations.removeNodeEdges(edges, '1');
+      GraphOps.removeNodeEdges(edges, '1');
 
       expect(edges).toHaveLength(1);
     });
@@ -213,7 +213,7 @@ describe('GraphOperations', () => {
         description: 'New description',
       };
 
-      const result = GraphOperations.updateNodeData(nodes, '1', newData);
+      const result = GraphOps.updateNodeData(nodes, '1', newData);
 
       expect(result[0].data.title).toBe('New Title');
       expect(result[0].data.color).toBe('#ff0000');
@@ -230,7 +230,7 @@ describe('GraphOperations', () => {
         description: 'Updated',
       };
 
-      const result = GraphOperations.updateNodeData(nodes, '1', newData);
+      const result = GraphOps.updateNodeData(nodes, '1', newData);
 
       expect(result[0].data).toEqual(newData);
     });
@@ -245,7 +245,7 @@ describe('GraphOperations', () => {
         description: '',
       };
 
-      const result = GraphOperations.updateNodeData(nodes, 'non-existent', newData);
+      const result = GraphOps.updateNodeData(nodes, 'non-existent', newData);
 
       expect(result[0].data.title).toBe('Original');
     });
@@ -260,7 +260,7 @@ describe('GraphOperations', () => {
         description: '',
       };
 
-      GraphOperations.updateNodeData(nodes, '1', newData);
+      GraphOps.updateNodeData(nodes, '1', newData);
 
       expect(nodes[0].data.title).toBe('Original');
     });
@@ -273,7 +273,7 @@ describe('GraphOperations', () => {
         { id: '2', position: { x: 100, y: 100 }, data: {}, type: 'default' },
       ];
 
-      const result = GraphOperations.findNode(nodes, '2');
+      const result = GraphOps.findNode(nodes, '2');
 
       expect(result).toBeDefined();
       expect(result?.id).toBe('2');
@@ -284,7 +284,7 @@ describe('GraphOperations', () => {
         { id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' },
       ];
 
-      const result = GraphOperations.findNode(nodes, 'non-existent');
+      const result = GraphOps.findNode(nodes, 'non-existent');
 
       expect(result).toBeUndefined();
     });
@@ -300,7 +300,7 @@ describe('GraphOperations', () => {
         { id: 'e1-2', source: '1', target: '2' },
       ];
 
-      const result = GraphOperations.validateEdges(nodes, edges);
+      const result = GraphOps.validateEdges(nodes, edges);
 
       expect(result).toBe(true);
     });
@@ -313,7 +313,7 @@ describe('GraphOperations', () => {
         { id: 'e2-1', source: '2', target: '1' },
       ];
 
-      const result = GraphOperations.validateEdges(nodes, edges);
+      const result = GraphOps.validateEdges(nodes, edges);
 
       expect(result).toBe(false);
     });
@@ -326,7 +326,7 @@ describe('GraphOperations', () => {
         { id: 'e1-2', source: '1', target: '2' },
       ];
 
-      const result = GraphOperations.validateEdges(nodes, edges);
+      const result = GraphOps.validateEdges(nodes, edges);
 
       expect(result).toBe(false);
     });
@@ -337,7 +337,7 @@ describe('GraphOperations', () => {
       ];
       const edges: Edge[] = [];
 
-      const result = GraphOperations.validateEdges(nodes, edges);
+      const result = GraphOps.validateEdges(nodes, edges);
 
       expect(result).toBe(true);
     });
@@ -351,13 +351,13 @@ describe('GraphOperations', () => {
         { id: '3', position: { x: 200, y: 200 }, data: {}, type: 'default' },
       ];
 
-      const result = GraphOperations.getNodeIds(nodes);
+      const result = GraphOps.getNodeIds(nodes);
 
       expect(result).toEqual(['1', '2', '3']);
     });
 
     it('should handle empty array', () => {
-      const result = GraphOperations.getNodeIds([]);
+      const result = GraphOps.getNodeIds([]);
 
       expect(result).toEqual([]);
     });
