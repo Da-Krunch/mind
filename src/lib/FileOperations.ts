@@ -74,7 +74,7 @@ export class FileOperations {
       suggestedName: 'mind-graph.json',
       types: [
         {
-          description: 'Mind Graph Files',
+          description: 'JSON Files',
           accept: { 'application/json': ['.json'] },
         },
       ],
@@ -100,7 +100,7 @@ export class FileOperations {
     const [fileHandle] = await (window as any).showOpenFilePicker({
       types: [
         {
-          description: 'Mind Graph Files',
+          description: 'JSON Files',
           accept: { 'application/json': ['.json'] },
         },
       ],
