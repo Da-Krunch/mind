@@ -9,7 +9,7 @@ import {
   OnNodesChange,
   OnEdgesChange,
 } from 'reactflow';
-import { NodeData } from '../types';
+import { NodeData, Result } from '../types';
 import { useHistory } from './useHistory';
 import * as GraphOps from '../lib/GraphOperations';
 import { FileOperations } from '../lib/FileOperations';
@@ -84,7 +84,7 @@ export interface GraphModel {
   newGraph: () => void;
   save: () => void;
   saveAs: () => void;
-  load: () => Promise<{ success: boolean; error: string | null }>;
+  load: () => Promise<Result<void>>;
   
   // History operations
   undo: () => void;
@@ -226,7 +226,7 @@ export function useGraphModel(): GraphModel {
   }, [nodes, edges]);
   
   // Load graph from YAML file
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<Result<void>> => {
     try {
       if (FileOperations.isFileSystemAccessSupported()) {
         // Use File System Access API
@@ -237,7 +237,7 @@ export function useGraphModel(): GraphModel {
         setCurrentFilename(filename);
         fileHandleRef.current = fileHandle;
         captureSnapshot();
-        return { success: true, error: null };
+        return { success: true, data: undefined };
       } else {
         // Fallback to file input
         const { content, filename } = await FileOperations.upload();
@@ -246,7 +246,7 @@ export function useGraphModel(): GraphModel {
         setEdges(loadedEdges);
         setCurrentFilename(filename);
         captureSnapshot();
-        return { success: true, error: null };
+        return { success: true, data: undefined };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
