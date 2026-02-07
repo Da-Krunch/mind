@@ -1,40 +1,22 @@
-import { Node, Edge } from 'reactflow';
-import * as yaml from 'js-yaml';
-import { NodeData, getNodeLabel } from '../types';
+import { DocumentModel, HierarchicalNode } from './DocumentModel';
 
 /**
  * Current file format version
- * Increment when making breaking changes to the format
  */
 export const FILE_FORMAT_VERSION = 1;
 
 /**
- * Structure of the saved file
+ * Structure of the saved file (JSON format)
  */
 export interface MindFileFormat {
-  version: number;
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    data: {
-      title: string;
-      color: string;
-      description: string;
-      label?: string;
-    };
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    type?: string;
-  }>;
+  version: 1;
+  nodes: HierarchicalNode[];
 }
 
 /**
- * FileOperations - Pure functions for saving and loading graph state
+ * FileOperations - Pure functions for saving and loading document state
  * 
+ * Uses JSON format for simple, native serialization.
  * Uses the File System Access API when available for seamless file overwriting.
  * Falls back to download links for browsers that don't support it.
  */
@@ -47,46 +29,22 @@ export class FileOperations {
   }
 
   /**
-   * Convert nodes and edges to YAML string
+   * Serialize a DocumentModel to JSON string
    */
-  static serialize(nodes: Node<NodeData>[], edges: Edge[]): string {
+  static serialize(document: DocumentModel): string {
     const fileData: MindFileFormat = {
       version: FILE_FORMAT_VERSION,
-      nodes: nodes.map(node => {
-        const data = node.data as NodeData;
-        return {
-          id: node.id,
-          type: node.type || 'colored',
-          position: node.position,
-          data: {
-            title: data.title,
-            color: data.color,
-            description: data.description,
-            label: getNodeLabel(data),  // Compute label on-the-fly
-          },
-        };
-      }),
-      edges: edges.map(edge => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        type: edge.type,
-      })),
+      nodes: document.toJSON(),
     };
 
-    return yaml.dump(fileData, {
-      indent: 2,
-      lineWidth: 120,
-      noRefs: true,
-    });
+    return JSON.stringify(fileData, null, 2);
   }
 
   /**
-   * Parse YAML string into nodes and edges
-   * Throws error if version is incompatible
+   * Deserialize JSON string into a DocumentModel
    */
-  static deserialize(yamlString: string): { nodes: Node<NodeData>[]; edges: Edge[] } {
-    const fileData = yaml.load(yamlString) as MindFileFormat;
+  static deserialize(jsonString: string): DocumentModel {
+    const fileData = JSON.parse(jsonString) as MindFileFormat;
 
     // Version check
     if (!fileData.version) {
@@ -100,26 +58,7 @@ export class FileOperations {
       );
     }
 
-    // Convert to React Flow format (label is ignored from file, computed on-the-fly)
-    const nodes: Node<NodeData>[] = fileData.nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: {
-        title: node.data.title,
-        color: node.data.color,
-        description: node.data.description,
-      },
-    }));
-
-    const edges: Edge[] = fileData.edges.map(edge => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      type: edge.type,
-    }));
-
-    return { nodes, edges };
+    return DocumentModel.fromJSON(fileData.nodes);
   }
 
   /**
@@ -132,11 +71,11 @@ export class FileOperations {
   ): Promise<FileSystemFileHandle> {
     // Get existing handle or prompt for new one
     const handle: FileSystemFileHandle = fileHandle ?? await (window as any).showSaveFilePicker({
-      suggestedName: 'mind-graph.yaml',
+      suggestedName: 'mind-graph.json',
       types: [
         {
-          description: 'YAML Files',
-          accept: { 'text/yaml': ['.yaml', '.yml'] },
+          description: 'Mind Graph Files',
+          accept: { 'application/json': ['.json'] },
         },
       ],
     });
@@ -161,8 +100,8 @@ export class FileOperations {
     const [fileHandle] = await (window as any).showOpenFilePicker({
       types: [
         {
-          description: 'YAML Files',
-          accept: { 'text/yaml': ['.yaml', '.yml'] },
+          description: 'Mind Graph Files',
+          accept: { 'application/json': ['.json'] },
         },
       ],
       multiple: false,
@@ -179,10 +118,10 @@ export class FileOperations {
   }
 
   /**
-   * Download YAML content as a file (fallback for unsupported browsers)
+   * Download JSON content as a file (fallback for unsupported browsers)
    */
-  static download(content: string, filename: string = 'mind-graph.yaml'): void {
-    const blob = new Blob([content], { type: 'text/yaml;charset=utf-8' });
+  static download(content: string, filename: string = 'mind-graph.json'): void {
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -201,7 +140,7 @@ export class FileOperations {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.yaml,.yml';
+      input.accept = '.json';
       
       input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];

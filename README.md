@@ -25,11 +25,11 @@ A web-based node graph editor for visual thinking and organization.
 - New empty graph (`Cmd/Ctrl+Shift+N`)
 - Save to current file (`Cmd/Ctrl+S`) - seamlessly overwrites in modern browsers
 - Save As with new filename (`Cmd/Ctrl+Shift+S`)
-- Load from YAML file (`Cmd/Ctrl+O`)
+- Load from JSON file (`Cmd/Ctrl+O`)
 - Current filename displayed in toolbar
 - Uses File System Access API for seamless file overwriting (Chrome, Edge)
 - Falls back to downloads for unsupported browsers
-- Versioned file format for compatibility
+- Versioned JSON format
 
 **Connections**
 - Connect nodes with draggable edges
@@ -55,25 +55,26 @@ npm run build     # Build for production
 
 ## Architecture
 
-Clean three-layer separation for testability and maintainability:
+MVC pattern with clean separation of concerns:
 
 **Model Layer** (`src/lib/`)
-- Pure TypeScript classes with no React dependencies
-- `HistoryManager` - Undo/redo state management
-- `GraphOperations` - Node/edge manipulation logic
-- `FileOperations` - YAML serialization/deserialization
-- Fully unit tested (53 tests)
+- Pure TypeScript classes with no React or view dependencies
+- `DocumentModel` - Hierarchical document structure with parent/child relationships
+- `FileOperations` - JSON serialization/deserialization with versioning
+- `ReactFlowAdapter` - Converts between model and view formats
+- Fully unit tested (107 tests)
 
-**Integration Layer** (`src/hooks/`)
+**Controller Layer** (`src/hooks/`)
 - Thin React hooks that bridge model and view
-- `useHistory` - Connects HistoryManager to React lifecycle
-- `useGraphModel` - Connects GraphOperations and FileOperations to React state
-- Integration tested (9 tests)
+- `useDocumentHistory` - Undo/redo for DocumentModel snapshots
+- `useGraphModel` - Orchestrates document state, file I/O, and navigation
 
-**Presentation Layer** (`src/components/`)
+**View Layer** (`src/components/`)
 - React components for UI rendering
-- `App` - Coordinates state and selection
-- `NodeGraph` - ReactFlow canvas and interactions
+- `App` - Coordinates selection and event handling
+- `NodeGraph` - ReactFlow canvas with keyboard shortcuts
 - `ParameterEditor` - Adaptive editing panel
 
-See `DEV_PLAN.md` for development history.
+The architecture allows the view layer (ReactFlow) to be replaced without touching business logic.
+
+See `DEV_PLAN.md` for detailed development history.

@@ -20,28 +20,34 @@ function App() {
     modifiers: { shift: boolean; cmdCtrl: boolean; alt: boolean }
   ) => {
     setSelectedNodeIds((prev) => {
+      let newSelection: string[];
       if (modifiers.alt) {
         // Alt: Remove from selection
-        return prev.filter(id => id !== nodeId);
+        newSelection = prev.filter(id => id !== nodeId);
       } else if (modifiers.cmdCtrl) {
         // Cmd/Ctrl: Toggle selection
         if (prev.includes(nodeId)) {
-          return prev.filter(id => id !== nodeId);
+          newSelection = prev.filter(id => id !== nodeId);
         } else {
-          return [...prev, nodeId];
+          newSelection = [...prev, nodeId];
         }
       } else if (modifiers.shift) {
         // Shift: Add to selection
         if (!prev.includes(nodeId)) {
-          return [...prev, nodeId];
+          newSelection = [...prev, nodeId];
+        } else {
+          newSelection = prev;
         }
-        return prev;
       } else {
         // No modifier: Replace selection
-        return [nodeId];
+        newSelection = [nodeId];
       }
+      
+      // Sync with graph model
+      graph.setSelectedNodeIds(newSelection);
+      return newSelection;
     });
-  }, []);
+  }, [graph]);
 
   // Called when user edits data in the ParameterEditor
   // Updates single node or multiple nodes (color only for multi-select)
@@ -59,13 +65,16 @@ function App() {
   // Called when user closes the editor or clicks canvas
   const handleClose = useCallback(() => {
     setSelectedNodeIds([]);
-  }, []);
+    graph.setSelectedNodeIds([]);
+  }, [graph]);
 
   // Called when user deletes a node from ParameterEditor
   const handleDeleteNode = useCallback((nodeId: string) => {
     graph.deleteNode(nodeId);
-    setSelectedNodeIds((prev) => prev.filter(id => id !== nodeId));
-  }, [graph]);
+    const newSelection = selectedNodeIds.filter(id => id !== nodeId);
+    setSelectedNodeIds(newSelection);
+    graph.setSelectedNodeIds(newSelection);
+  }, [graph, selectedNodeIds]);
   
   // Called when user commits changes in ParameterEditor (blur or Enter)
   const handleCommitChanges = useCallback(() => {
@@ -76,6 +85,7 @@ function App() {
   const handleNew = useCallback(() => {
     graph.newGraph();
     setSelectedNodeIds([]);
+    // graph.newGraph() already clears selection internally
   }, [graph]);
 
   // Called when user saves the graph
@@ -92,11 +102,10 @@ function App() {
   const handleLoad = useCallback(async () => {
     const result = await graph.load();
     if (result.success) {
-      // TypeScript knows result.data exists here (though it's void)
       // Clear selection on successful load
       setSelectedNodeIds([]);
+      // graph.load() already clears selection internally
     } else {
-      // TypeScript knows result.error exists here
       // Show error to user (could be replaced with a toast/notification system)
       alert(`Failed to load file: ${result.error}`);
     }
