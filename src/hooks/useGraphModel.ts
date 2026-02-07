@@ -11,7 +11,7 @@ import {
 } from 'reactflow';
 import { NodeData } from '../types';
 import { useHistory } from './useHistory';
-import { GraphOperations } from '../lib/GraphOperations';
+import * as GraphOps from '../lib/GraphOperations';
 import { FileOperations } from '../lib/FileOperations';
 
 /**
@@ -139,19 +139,19 @@ export function useGraphModel(): GraphModel {
   
   // Create a new node with default values
   const createNode = useCallback((position?: { x: number; y: number }): Node<NodeData> => {
-    const newNode = GraphOperations.createNode(position);
-    setNodes((nds) => GraphOperations.addNode(nds, newNode));
+    const newNode = GraphOps.createNode(position);
+    setNodes((nds) => GraphOps.addNode(nds, newNode));
     captureSnapshot();
     return newNode;
   }, [setNodes, captureSnapshot]);
   
   // Duplicate an existing node
   const duplicateNode = useCallback((nodeId: string): Node<NodeData> | null => {
-    const nodeToDuplicate = GraphOperations.findNode(nodes, nodeId);
+    const nodeToDuplicate = GraphOps.findNode(nodes, nodeId);
     if (!nodeToDuplicate) return null;
     
-    const duplicatedNode = GraphOperations.duplicateNode(nodeToDuplicate as Node<NodeData>);
-    setNodes((nds) => GraphOperations.addNode(nds, duplicatedNode));
+    const duplicatedNode = GraphOps.duplicateNode(nodeToDuplicate as Node<NodeData>);
+    setNodes((nds) => GraphOps.addNode(nds, duplicatedNode));
     captureSnapshot();
     
     return duplicatedNode;
@@ -159,14 +159,14 @@ export function useGraphModel(): GraphModel {
   
   // Delete a node and all its connected edges
   const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => GraphOperations.removeNode(nds, nodeId));
-    setEdges((eds) => GraphOperations.removeNodeEdges(eds, nodeId));
+    setNodes((nds) => GraphOps.removeNode(nds, nodeId));
+    setEdges((eds) => GraphOps.removeNodeEdges(eds, nodeId));
     captureSnapshot();
   }, [setNodes, setEdges, captureSnapshot]);
   
   // Update a node's data (without capturing snapshot - let caller decide when to snapshot)
   const updateNodeData = useCallback((nodeId: string, data: NodeData) => {
-    setNodes((nds) => GraphOperations.updateNodeData(nds, nodeId, data));
+    setNodes((nds) => GraphOps.updateNodeData(nds, nodeId, data));
   }, [setNodes]);
   
   // Create a new empty graph
