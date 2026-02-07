@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GraphOperations } from './GraphOperations';
 import { Node, Edge } from 'reactflow';
-import { NodeData } from '../types';
+import { NodeData, getNodeLabel } from '../types';
 
 describe('GraphOperations', () => {
   describe('generateNodeId', () => {
@@ -61,8 +61,7 @@ describe('GraphOperations', () => {
           title: 'Original',
           color: '#ff0000',
           description: 'Test',
-          label: 'Original',
-        } as NodeData & { label: string },
+        },
       };
 
       const duplicate = GraphOperations.duplicateNode(original);
@@ -79,7 +78,11 @@ describe('GraphOperations', () => {
         id: 'test',
         type: 'colored',
         position: { x: 0, y: 0 },
-        data: { title: 'Test', color: '#000', description: '', label: 'Test' } as NodeData & { label: string },
+        data: {
+          title: 'Test',
+          color: '#000',
+          description: '',
+        },
       };
 
       const duplicate = GraphOperations.duplicateNode(original);
@@ -214,37 +217,22 @@ describe('GraphOperations', () => {
 
       expect(result[0].data.title).toBe('New Title');
       expect(result[0].data.color).toBe('#ff0000');
-      expect(result[0].data.label).toBe('New Title(...)');
+      expect(result[0].data.description).toBe('New description');
     });
 
-    it('should add ellipsis to label when description exists', () => {
+    it('should update all fields of node data', () => {
       const nodes: Node[] = [
-        { id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' },
+        { id: '1', position: { x: 0, y: 0 }, data: { title: 'Old', color: '#000', description: '' }, type: 'default' },
       ];
       const newData: NodeData = {
-        title: 'Title',
-        color: '#000',
-        description: 'Some description',
+        title: 'New',
+        color: '#ffffff',
+        description: 'Updated',
       };
 
       const result = GraphOperations.updateNodeData(nodes, '1', newData);
 
-      expect(result[0].data.label).toBe('Title(...)');
-    });
-
-    it('should not add ellipsis when description is empty', () => {
-      const nodes: Node[] = [
-        { id: '1', position: { x: 0, y: 0 }, data: {}, type: 'default' },
-      ];
-      const newData: NodeData = {
-        title: 'Title',
-        color: '#000',
-        description: '',
-      };
-
-      const result = GraphOperations.updateNodeData(nodes, '1', newData);
-
-      expect(result[0].data.label).toBe('Title');
+      expect(result[0].data).toEqual(newData);
     });
 
     it('should handle non-existent ID gracefully', () => {
@@ -372,6 +360,38 @@ describe('GraphOperations', () => {
       const result = GraphOperations.getNodeIds([]);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('getNodeLabel', () => {
+    it('should return title when description is empty', () => {
+      const data: NodeData = {
+        title: 'Test Title',
+        color: '#000',
+        description: '',
+      };
+
+      expect(getNodeLabel(data)).toBe('Test Title');
+    });
+
+    it('should add ellipsis when description exists', () => {
+      const data: NodeData = {
+        title: 'Test Title',
+        color: '#000',
+        description: 'Some description',
+      };
+
+      expect(getNodeLabel(data)).toBe('Test Title(...)');
+    });
+
+    it('should add ellipsis even for short descriptions', () => {
+      const data: NodeData = {
+        title: 'Title',
+        color: '#000',
+        description: 'x',
+      };
+
+      expect(getNodeLabel(data)).toBe('Title(...)');
     });
   });
 });

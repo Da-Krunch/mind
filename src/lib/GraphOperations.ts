@@ -36,8 +36,7 @@ export class GraphOperations {
         title: 'New Node',
         color: '#8b5cf6',
         description: '',
-        label: 'New Node',
-      } as NodeData & { label: string },
+      },
     };
   }
 
@@ -53,10 +52,10 @@ export class GraphOperations {
         y: node.position.y + 50,
       },
       data: {
-        ...node.data,
         title: `${node.data.title} (Copy)`,
-        label: `${node.data.title} (Copy)`,
-      } as NodeData & { label: string },
+        color: node.data.color,
+        description: node.data.description,
+      },
     };
   }
 
@@ -89,10 +88,7 @@ export class GraphOperations {
       node.id === nodeId
         ? {
             ...node,
-            data: {
-              ...data,
-              label: data.title + (data.description.length > 0 ? '(...)' : ''),
-            } as NodeData & { label: string },
+            data,
           }
         : node
     );
