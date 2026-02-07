@@ -36,51 +36,41 @@
 **7. File I/O**
 - Save/Save As/Load operations with File menu
 - File System Access API for seamless overwriting in modern browsers
-- Versioned YAML format (independent integer version)
+- Versioned JSON format (simplified from YAML)
 - Current filename tracking and display
 - New graph operation clears file handle
 
---- Here
+**8. Hierarchical Groups (Nested Mind Maps)** [IN PROGRESS]
 
+*Completed:*
 
-**8. Hierarchical Groups (Nested Mind Maps)**
+- `DocumentModel` class - hierarchical structure with `parentId` and `upstreamIds`
+- Immutable operations, computed children, no view dependencies
+- `useDocumentHistory` - tracks DocumentModel snapshots for undo/redo
+- `ReactFlowAdapter` - converts between model and ReactFlow formats
+- File I/O updated to JSON format, serializes hierarchical structure
+- Navigation state (`currentGroupId`) - ephemeral, not saved/undoable
+- `useGraphModel` refactored to use DocumentModel
+- Selection state synchronized between App and graph model
+- Node movement and selection working
+- Comprehensive test suite (107 tests passing)
 
-*Document Model:*
-- New `DocumentModel` class in `src/lib/` - canonical source of truth
-- Each node has:
-  - `parentId: string | null` (null = root level)
-  - `upstreamIds: string[]` - node IDs this node connects FROM (replaces Edge type)
-- No `children` array - compute children on-demand by scanning `parentId`
-- No separate Edge type - edges encoded as downstream node's `upstreamIds`
-- File I/O serializes flat node array with parent/upstream relationships
+*Remaining:*
+- Double-click node handler → navigate into node (show children)
+- ESC key handler → navigate to parent group
+- Breadcrumb trail UI → show current path (Root > Node1 > Node2)
 
-*Navigation:*
-- App tracks `currentGroupId: string | null` (null = root)
-- Double-click node → navigate into it (show its children as siblings)
-- ESC key → navigate to parent (or stay at root)
-- Breadcrumb trail at bottom shows current path (Root > Node1 > Node2)
-
-*View Layer:*
+*Design Notes:*
+- Single source of truth: `parentId` on child, no `children` array
+- Edges as `upstreamIds` on downstream node (not separate Edge objects)
 - ReactFlow shows nodes where `parentId === currentGroupId`
-- ReactFlow edges generated from visible nodes' `upstreamIds`
-- Transform: DocumentModel → ReactFlow (filter by parent, generate edges)
-- Reverse: ReactFlow edge creation → update downstream node's `upstreamIds`
-
-*Rationale:*
-- Single source of truth: parent stored once on child
-- Edges "owned" by downstream node (natural direction)
-- O(n) child scanning acceptable for typical sizes
-- Simpler serialization (just nodes, no edge array)
-
-*Implications:*
-- Navigation (`currentGroupId`) is ephemeral UI state - not saved, not undoable
-- Undo/redo only tracks document changes (nodes, properties, relationships)
 - Creating nodes sets `parentId` to `currentGroupId`
-- Moving nodes between groups = change `parentId` (this IS undoable)
-- Deleting node removes its ID from all nodes' `upstreamIds`
-- Edge creation adds source ID to target's `upstreamIds`
-- Selection cleared when navigating to different group
+- Moving nodes between groups changes `parentId` (undoable)
+- Selection cleared when navigating between groups
 
-**9. Cut/Copy/Paste
-- Add edit menu, move "new node" and "duplicate" in there.
-- Add cut, copy and paste actions.
+--- Current Position
+
+**9. Cut/Copy/Paste**
+- Move "new node" and "duplicate" to Edit menu
+- Add cut, copy and paste operations
+- Clipboard operations respect hierarchy

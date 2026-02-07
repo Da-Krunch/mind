@@ -1,74 +1,64 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useMemo } from 'react';
 import { 
   Node, 
   Edge, 
   Connection,
-  addEdge,
-  useNodesState,
-  useEdgesState,
   OnNodesChange,
   OnEdgesChange,
+  NodeChange,
+  EdgeChange,
 } from 'reactflow';
 import { NodeData, Result } from '../types';
-import { useHistory } from './useHistory';
-import * as GraphOps from '../lib/GraphOperations';
+import { useDocumentHistory } from './useDocumentHistory';
+import { DocumentModel } from '../lib/DocumentModel';
 import { FileOperations } from '../lib/FileOperations';
+import * as Adapter from '../lib/ReactFlowAdapter';
 import { HISTORY_MAX_STEPS } from '../constants';
 
 /**
- * Initial sample nodes with our NodeData structure
- * Each node needs: id, position, data, type
- * Note: This sample data will be rewritten in the future
+ * Create initial sample document
+ * Creates 3 nodes at root level with connections
  */
-const initialNodes: Node<NodeData>[] = [
-  {
-    id: '1',
-    type: 'colored',
-    position: { x: 250, y: 100 },
-    data: {
-      title: 'Welcome',
-      color: '#3b82f6',
-      description: 'This is the first node. Click to select it!',
-    },
-  },
-  {
-    id: '2',
-    type: 'colored',
-    position: { x: 100, y: 300 },
-    data: {
-      title: 'Ideas',
-      color: '#10b981',
-      description: 'Store your brilliant ideas here.',
-    },
-  },
-  {
-    id: '3',
-    type: 'colored',
-    position: { x: 400, y: 300 },
-    data: {
-      title: 'Tasks',
-      color: '#f59e0b',
-      description: 'Keep track of things to do.',
-    },
-  },
-];
-
-/**
- * Initial edges (connections) between nodes
- * Edges need: id, source (node id), target (node id)
- * All edges have consistent styling (no animation for uniformity)
- */
-const initialEdges: Edge[] = [
-  { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e1-3', source: '1', target: '3' },
-];
+function createInitialDocument(): DocumentModel {
+  const doc = DocumentModel.empty();
+  
+  const node1 = doc.createNode(null, { x: 250, y: 100 });
+  const node2 = doc.createNode(null, { x: 100, y: 300 });
+  const node3 = doc.createNode(null, { x: 400, y: 300 });
+  
+  let newDoc = doc.addNode(node1).addNode(node2).addNode(node3);
+  
+  // Update with sample content
+  newDoc = newDoc.updateNodeData(node1.id, {
+    title: 'Welcome',
+    color: '#3b82f6',
+    description: 'This is the first node. Click to select it!',
+  });
+  newDoc = newDoc.updateNodeData(node2.id, {
+    title: 'Ideas',
+    color: '#10b981',
+    description: 'Store your brilliant ideas here.',
+  });
+  newDoc = newDoc.updateNodeData(node3.id, {
+    title: 'Tasks',
+    color: '#f59e0b',
+    description: 'Keep track of things to do.',
+  });
+  
+  // Add connections
+  newDoc = newDoc.addEdge(node1.id, node2.id);
+  newDoc = newDoc.addEdge(node1.id, node3.id);
+  
+  return newDoc;
+}
 
 export interface GraphModel {
   // State
-  nodes: Node[];
-  edges: Edge[];
+  nodes: Node[];  // ReactFlow nodes (computed from document)
+  edges: Edge[];  // ReactFlow edges (computed from document)
   currentFilename: string | null;
   hasFileHandle: boolean;
+  currentGroupId: string | null;  // Current navigation context
   
   // ReactFlow event handlers
   onNodesChange: OnNodesChange;
@@ -80,7 +70,15 @@ export interface GraphModel {
   createNode: (position?: { x: number; y: number }) => Node<NodeData>;
   duplicateNode: (nodeId: string) => Node<NodeData> | null;
   deleteNode: (nodeId: string) => void;
-  updateNodeData: (nodeId: string, data: NodeData) => void;
+  updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
+  
+  // Selection operations
+  setSelectedNodeIds: (nodeIds: string[]) => void;
+  
+  // Navigation operations
+  navigateInto: (nodeId: string) => void;
+  navigateToParent: () => void;
+  navigateToRoot: () => void;
   
   // File operations
   newGraph: () => void;
@@ -97,92 +95,174 @@ export interface GraphModel {
 }
 
 /**
- * Custom hook for managing the graph data model
+ * Custom hook for managing the hierarchical document model
  * 
- * This hook is a thin React wrapper around pure business logic.
- * It handles:
- * - React state management (useNodesState, useEdgesState)
- * - History integration (useHistory)
- * - Delegating operations to GraphOperations
+ * Architecture (Phase 8):
+ * - Model: DocumentModel (pure business logic, no React/ReactFlow dependencies)
+ * - Adapter: ReactFlowAdapter (converts between model and view)
+ * - View: ReactFlow (presentation layer)
+ * - Navigation: currentGroupId (ephemeral UI state, not saved/undoable)
  * 
- * Architecture:
- * - Pure logic: GraphOperations, HistoryManager (in src/lib/)
- * - React integration: This hook
- * - Presentation: NodeGraph component
+ * The hook manages:
+ * - Document state (DocumentModel)
+ * - Navigation state (currentGroupId)
+ * - History (undo/redo on document changes only)
+ * - File I/O (serialization/deserialization)
+ * - Conversion to ReactFlow format for rendering
  */
 export function useGraphModel(): GraphModel {
-  // React Flow state management hooks
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // Core document state
+  const [document, setDocument] = useState<DocumentModel>(() => createInitialDocument());
+  
+  // Navigation state (ephemeral - not saved, not undoable)
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
   
   // Track the current working file
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
   const fileHandleRef = useRef<FileSystemFileHandle | null>(null);
   
-  // History management (undo/redo)
-  const { undo, redo, captureSnapshot, canUndo, canRedo } = useHistory(
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
+  // Selection state (needed for adapter)
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  
+  // History management (undo/redo) - tracks DocumentModel snapshots
+  const { undo, redo, captureSnapshot, canUndo, canRedo } = useDocumentHistory(
+    document,
+    setDocument,
     HISTORY_MAX_STEPS
   );
   
+  // Convert document to ReactFlow format for rendering
+  const nodes = useMemo(
+    () => Adapter.getVisibleNodes(document, currentGroupId, selectedNodeIds),
+    [document, currentGroupId, selectedNodeIds]
+  );
+  
+  const edges = useMemo(
+    () => Adapter.getVisibleEdges(document, currentGroupId),
+    [document, currentGroupId]
+  );
+  
+  // Handle ReactFlow node changes (position updates, deletions, etc.)
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setDocument((doc) => {
+      let updatedDoc = doc;
+      for (const change of changes) {
+        if (change.type === 'position' && change.position) {
+          // Update position (both during drag and after)
+          updatedDoc = updatedDoc.updateNodePosition(change.id, change.position);
+        }
+      }
+      return updatedDoc;
+    });
+  }, []);
+  
+  // Handle ReactFlow edge changes (deletions)
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setDocument((doc) => {
+      let updatedDoc = doc;
+      for (const change of changes) {
+        if (change.type === 'remove') {
+          // Parse edge id (format: "sourceId-targetId")
+          const [sourceId, targetId] = change.id.split('-');
+          if (sourceId && targetId) {
+            updatedDoc = updatedDoc.removeEdge(sourceId, targetId);
+          }
+        }
+      }
+      return updatedDoc;
+    });
+  }, []);
+  
   // Handle creating new connections when user drags from one node to another
   const onConnect = useCallback((params: Connection) => {
-    setEdges((eds) => addEdge(params, eds));
-    captureSnapshot();
-  }, [setEdges, captureSnapshot]);
+    if (params.source && params.target) {
+      setDocument((doc) => doc.addEdge(params.source!, params.target!));
+      captureSnapshot();
+    }
+  }, [captureSnapshot]);
   
   // Handle when node drag stops (capture for undo history)
   const onNodeDragStop = useCallback(() => {
     captureSnapshot();
   }, [captureSnapshot]);
   
-  // Create a new node with default values
+  // Create a new node with default values in the current group
   const createNode = useCallback((position?: { x: number; y: number }): Node<NodeData> => {
-    const newNode = GraphOps.createNode(position);
-    setNodes((nds) => GraphOps.addNode(nds, newNode));
+    let newNode: any;
+    setDocument((doc) => {
+      newNode = doc.createNode(currentGroupId, position);
+      return doc.addNode(newNode);
+    });
     captureSnapshot();
-    return newNode;
-  }, [setNodes, captureSnapshot]);
+    return Adapter.toReactFlowNode(newNode);
+  }, [currentGroupId, captureSnapshot]);
   
   // Duplicate an existing node
   const duplicateNode = useCallback((nodeId: string): Node<NodeData> | null => {
-    const nodeToDuplicate = GraphOps.findNode(nodes, nodeId);
-    if (!nodeToDuplicate) return null;
-    
-    const duplicatedNode = GraphOps.duplicateNode(nodeToDuplicate as Node<NodeData>);
-    setNodes((nds) => GraphOps.addNode(nds, duplicatedNode));
-    captureSnapshot();
-    
-    return duplicatedNode;
-  }, [nodes, setNodes, captureSnapshot]);
+    let duplicatedNode: any = null;
+    setDocument((doc) => {
+      const result = doc.duplicateNode(nodeId);
+      if (!result) return doc;
+      duplicatedNode = result.node;
+      return result.model;
+    });
+    if (duplicatedNode) {
+      captureSnapshot();
+      return Adapter.toReactFlowNode(duplicatedNode);
+    }
+    return null;
+  }, [captureSnapshot]);
   
   // Delete a node and all its connected edges
   const deleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => GraphOps.removeNode(nds, nodeId));
-    setEdges((eds) => GraphOps.removeNodeEdges(eds, nodeId));
+    setDocument((doc) => doc.removeNode(nodeId));
     captureSnapshot();
-  }, [setNodes, setEdges, captureSnapshot]);
+  }, [captureSnapshot]);
   
   // Update a node's data (without capturing snapshot - let caller decide when to snapshot)
-  const updateNodeData = useCallback((nodeId: string, data: NodeData) => {
-    setNodes((nds) => GraphOps.updateNodeData(nds, nodeId, data));
-  }, [setNodes]);
+  const updateNodeData = useCallback((nodeId: string, data: Partial<NodeData>) => {
+    setDocument((doc) => doc.updateNodeData(nodeId, data));
+  }, []);
+  
+  // Navigation: Navigate into a node (show its children)
+  const navigateInto = useCallback((nodeId: string) => {
+    const node = document.findNode(nodeId);
+    if (node) {
+      setCurrentGroupId(nodeId);
+      setSelectedNodeIds([]);  // Clear selection when navigating
+    }
+  }, [document]);
+  
+  // Navigation: Navigate to parent of current group
+  const navigateToParent = useCallback(() => {
+    if (currentGroupId === null) return;  // Already at root
+    
+    const currentNode = document.findNode(currentGroupId);
+    if (currentNode) {
+      setCurrentGroupId(currentNode.data.parentId);
+      setSelectedNodeIds([]);  // Clear selection when navigating
+    }
+  }, [document, currentGroupId]);
+  
+  // Navigation: Navigate to root level
+  const navigateToRoot = useCallback(() => {
+    setCurrentGroupId(null);
+    setSelectedNodeIds([]);  // Clear selection when navigating
+  }, []);
   
   // Create a new empty graph
   const newGraph = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
+    setDocument(DocumentModel.empty());
+    setCurrentGroupId(null);
     setCurrentFilename(null);
     fileHandleRef.current = null;
+    setSelectedNodeIds([]);
     captureSnapshot();
-  }, [setNodes, setEdges, captureSnapshot]);
+  }, [captureSnapshot]);
   
   // Save to current file (or prompt if no current file)
   const save = useCallback(async () => {
-    const yamlContent = FileOperations.serialize(nodes, edges);
+    const yamlContent = FileOperations.serialize(document);
     
     if (FileOperations.isFileSystemAccessSupported()) {
       try {
@@ -196,17 +276,17 @@ export function useGraphModel(): GraphModel {
       }
     } else {
       // Fallback to download for unsupported browsers
-      const filename = currentFilename || 'mind-graph.yaml';
+      const filename = currentFilename || 'mind-graph.json';
       FileOperations.download(yamlContent, filename);
       if (!currentFilename) {
         setCurrentFilename(filename);
       }
     }
-  }, [nodes, edges, currentFilename]);
+  }, [document, currentFilename]);
   
   // Always prompt for new filename
   const saveAs = useCallback(async () => {
-    const yamlContent = FileOperations.serialize(nodes, edges);
+    const yamlContent = FileOperations.serialize(document);
     
     if (FileOperations.isFileSystemAccessSupported()) {
       try {
@@ -221,11 +301,11 @@ export function useGraphModel(): GraphModel {
     } else {
       // Fallback to download with timestamp
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `mind-graph-${timestamp}.yaml`;
+      const filename = `mind-graph-${timestamp}.json`;
       FileOperations.download(yamlContent, filename);
       setCurrentFilename(filename);
     }
-  }, [nodes, edges]);
+  }, [document]);
   
   // Load graph from YAML file
   const load = useCallback(async (): Promise<Result<void>> => {
@@ -233,9 +313,10 @@ export function useGraphModel(): GraphModel {
       if (FileOperations.isFileSystemAccessSupported()) {
         // Use File System Access API
         const { content, filename, fileHandle } = await FileOperations.loadFromFileHandle();
-        const { nodes: loadedNodes, edges: loadedEdges } = FileOperations.deserialize(content);
-        setNodes(loadedNodes);
-        setEdges(loadedEdges);
+        const loadedDoc = FileOperations.deserialize(content);
+        setDocument(loadedDoc);
+        setCurrentGroupId(null);  // Reset to root after loading
+        setSelectedNodeIds([]);
         setCurrentFilename(filename);
         fileHandleRef.current = fileHandle;
         captureSnapshot();
@@ -243,9 +324,10 @@ export function useGraphModel(): GraphModel {
       } else {
         // Fallback to file input
         const { content, filename } = await FileOperations.upload();
-        const { nodes: loadedNodes, edges: loadedEdges } = FileOperations.deserialize(content);
-        setNodes(loadedNodes);
-        setEdges(loadedEdges);
+        const loadedDoc = FileOperations.deserialize(content);
+        setDocument(loadedDoc);
+        setCurrentGroupId(null);  // Reset to root after loading
+        setSelectedNodeIds([]);
         setCurrentFilename(filename);
         captureSnapshot();
         return { success: true, data: undefined };
@@ -254,7 +336,7 @@ export function useGraphModel(): GraphModel {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return { success: false, error: message };
     }
-  }, [setNodes, setEdges, captureSnapshot]);
+  }, [captureSnapshot]);
   
   return {
     // State
@@ -262,6 +344,7 @@ export function useGraphModel(): GraphModel {
     edges,
     currentFilename,
     hasFileHandle: fileHandleRef.current !== null,
+    currentGroupId,
     
     // ReactFlow handlers
     onNodesChange,
@@ -274,6 +357,14 @@ export function useGraphModel(): GraphModel {
     duplicateNode,
     deleteNode,
     updateNodeData,
+    
+    // Selection operations
+    setSelectedNodeIds,
+    
+    // Navigation operations
+    navigateInto,
+    navigateToParent,
+    navigateToRoot,
     
     // File operations
     newGraph,
