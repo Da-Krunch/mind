@@ -1,5 +1,13 @@
 import { Node, Edge } from 'reactflow';
 import { NodeData } from '../types';
+import {
+  DEFAULT_NODE_TITLE,
+  DEFAULT_NODE_COLOR,
+  DEFAULT_NODE_DESCRIPTION,
+  RANDOM_POSITION_RANGE,
+  RANDOM_POSITION_OFFSET,
+  DUPLICATE_NODE_OFFSET,
+} from '../constants';
 
 /**
  * Pure functions for graph operations
@@ -28,13 +36,13 @@ export function createNode(position?: { x: number; y: number }): Node<NodeData> 
     id: generateNodeId(),
     type: 'colored',
     position: position ?? {
-      x: Math.random() * 400 + 100,
-      y: Math.random() * 400 + 100,
+      x: Math.random() * RANDOM_POSITION_RANGE + RANDOM_POSITION_OFFSET,
+      y: Math.random() * RANDOM_POSITION_RANGE + RANDOM_POSITION_OFFSET,
     },
     data: {
-      title: 'New Node',
-      color: '#8b5cf6',
-      description: '',
+      title: DEFAULT_NODE_TITLE,
+      color: DEFAULT_NODE_COLOR,
+      description: DEFAULT_NODE_DESCRIPTION,
     },
   };
 }
@@ -47,8 +55,8 @@ export function duplicateNode(node: Node<NodeData>): Node<NodeData> {
     ...node,
     id: generateNodeId(),
     position: {
-      x: node.position.x + 50,
-      y: node.position.y + 50,
+      x: node.position.x + DUPLICATE_NODE_OFFSET,
+      y: node.position.y + DUPLICATE_NODE_OFFSET,
     },
     data: {
       title: `${node.data.title} (Copy)`,

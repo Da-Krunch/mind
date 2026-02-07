@@ -13,15 +13,17 @@ import { NodeData, Result } from '../types';
 import { useHistory } from './useHistory';
 import * as GraphOps from '../lib/GraphOperations';
 import { FileOperations } from '../lib/FileOperations';
+import { HISTORY_MAX_STEPS } from '../constants';
 
 /**
  * Initial sample nodes with our NodeData structure
  * Each node needs: id, position, data, type
+ * Note: This sample data will be rewritten in the future
  */
 const initialNodes: Node<NodeData>[] = [
   {
     id: '1',
-    type: 'colored',  // Use our custom colored node type
+    type: 'colored',
     position: { x: 250, y: 100 },
     data: {
       title: 'Welcome',
@@ -117,13 +119,13 @@ export function useGraphModel(): GraphModel {
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
   const fileHandleRef = useRef<FileSystemFileHandle | null>(null);
   
-  // History management (undo/redo with 16 steps)
+  // History management (undo/redo)
   const { undo, redo, captureSnapshot, canUndo, canRedo } = useHistory(
     nodes,
     edges,
     setNodes,
     setEdges,
-    16
+    HISTORY_MAX_STEPS
   );
   
   // Handle creating new connections when user drags from one node to another
