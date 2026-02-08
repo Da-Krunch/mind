@@ -333,7 +333,10 @@ function NodeGraph({
         <div className="menu-container" ref={fileMenuRef}>
           <button 
             className="toolbar-button menu-button"
-            onClick={() => setFileMenuOpen(!fileMenuOpen)}
+            onClick={() => {
+              setFileMenuOpen(!fileMenuOpen);
+              setEditMenuOpen(false);  // Close other menu
+            }}
             title="File operations"
           >
             File {fileMenuOpen ? '▼' : '▶'}
@@ -393,7 +396,10 @@ function NodeGraph({
         <div className="menu-container" ref={editMenuRef}>
           <button 
             className="toolbar-button menu-button"
-            onClick={() => setEditMenuOpen(!editMenuOpen)}
+            onClick={() => {
+              setEditMenuOpen(!editMenuOpen);
+              setFileMenuOpen(false);  // Close other menu
+            }}
             title="Edit operations"
           >
             Edit {editMenuOpen ? '▼' : '▶'}
