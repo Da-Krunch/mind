@@ -100,4 +100,32 @@ describe('useGraphModel - React Integration', () => {
     const updatedNode = result.current.nodes.find(n => n.id === firstNodeId);
     expect(updatedNode?.data.title).toBe(newTitle);
   });
+
+  it('should not affect clipboard when duplicating a node', () => {
+    const { result } = renderHook(() => useGraphModel());
+
+    // Initially clipboard should be empty
+    expect(result.current.hasClipboard).toBe(false);
+
+    const firstNodeId = result.current.nodes[0].id;
+
+    // Duplicate a node
+    act(() => {
+      result.current.duplicateNode(firstNodeId);
+    });
+
+    // Clipboard should still be empty - duplicate doesn't use clipboard
+    expect(result.current.hasClipboard).toBe(false);
+
+    // But copy should populate the clipboard
+    act(() => {
+      result.current.setSelectedNodeIds([firstNodeId]);
+    });
+
+    act(() => {
+      result.current.copyToClipboard();
+    });
+
+    expect(result.current.hasClipboard).toBe(true);
+  });
 });

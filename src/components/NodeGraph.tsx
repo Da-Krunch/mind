@@ -102,6 +102,11 @@ interface NodeGraphProps {
   // Graph operations (called by keyboard shortcuts and toolbar)
   onCreateNode: (position?: { x: number; y: number }) => void;
   onDuplicateNode: (nodeId: string) => void;
+  onDeleteSelected: () => void;
+  onCut: () => void;
+  onCopy: () => void;
+  onPaste: (position?: { x: number; y: number }) => void;
+  hasClipboard: boolean;
   onNew: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -143,6 +148,11 @@ function NodeGraph({
   selectedNodeIds,
   onCreateNode,
   onDuplicateNode,
+  onDeleteSelected,
+  onCut,
+  onCopy,
+  onPaste,
+  hasClipboard,
   onNew,
   onSave,
   onSaveAs,
@@ -282,6 +292,13 @@ function NodeGraph({
         return;
       }
       
+      // Delete selected nodes: Delete or Backspace (no modifiers, not in input)
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !modifier && !event.shiftKey && !event.altKey && !isTyping) {
+        event.preventDefault();
+        onDeleteSelected();
+        return;
+      }
+      
       // Undo: Cmd/Ctrl+Z
       if (modifier && event.key.toLowerCase() === 'z' && !event.shiftKey) {
         event.preventDefault();
@@ -312,6 +329,22 @@ function NodeGraph({
         event.preventDefault();
         onLoad();
       }
+      // Cut: Cmd/Ctrl+X
+      else if (modifier && event.key.toLowerCase() === 'x') {
+        event.preventDefault();
+        onCut();
+      }
+      // Copy: Cmd/Ctrl+C
+      else if (modifier && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        onCopy();
+      }
+      // Paste: Cmd/Ctrl+V
+      else if (modifier && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        const position = screenToFlowPosition(mousePositionRef.current);
+        onPaste(position);
+      }
       // Duplicate node: Cmd/Ctrl+D (duplicate first selected node)
       else if (modifier && event.key.toLowerCase() === 'd') {
         event.preventDefault();
@@ -323,7 +356,7 @@ function NodeGraph({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onUndo, onRedo, onNew, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, selectedNodeIds, screenToFlowPosition, onNavigateToParent, onNavigateInto, hoveredNodeId]);
+  }, [onUndo, onRedo, onNew, onSave, onSaveAs, onLoad, onCreateNode, onDuplicateNode, onDeleteSelected, onCut, onCopy, onPaste, selectedNodeIds, screenToFlowPosition, onNavigateToParent, onNavigateInto, hoveredNodeId]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -432,6 +465,44 @@ function NodeGraph({
                 <span className="menu-icon">📋</span>
                 <span className="menu-label">Duplicate Node</span>
                 <span className="menu-shortcut">⌘D</span>
+              </button>
+              <div className="menu-separator" />
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onCut();
+                  setEditMenuOpen(false);
+                }}
+                disabled={selectedNodeIds.length === 0}
+              >
+                <span className="menu-icon">✂️</span>
+                <span className="menu-label">Cut</span>
+                <span className="menu-shortcut">⌘X</span>
+              </button>
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  onCopy();
+                  setEditMenuOpen(false);
+                }}
+                disabled={selectedNodeIds.length === 0}
+              >
+                <span className="menu-icon">📄</span>
+                <span className="menu-label">Copy</span>
+                <span className="menu-shortcut">⌘C</span>
+              </button>
+              <button 
+                className="menu-item"
+                onClick={() => {
+                  const position = screenToFlowPosition(mousePositionRef.current);
+                  onPaste(position);
+                  setEditMenuOpen(false);
+                }}
+                disabled={!hasClipboard}
+              >
+                <span className="menu-icon">📌</span>
+                <span className="menu-label">Paste</span>
+                <span className="menu-shortcut">⌘V</span>
               </button>
             </div>
           )}

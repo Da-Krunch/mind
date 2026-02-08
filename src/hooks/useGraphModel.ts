@@ -10,7 +10,7 @@ import {
 } from 'reactflow';
 import { NodeData, Result } from '../types';
 import { useDocumentHistory } from './useDocumentHistory';
-import { DocumentModel } from '../lib/DocumentModel';
+import { DocumentModel, HierarchicalNode } from '../lib/DocumentModel';
 import { FileOperations } from '../lib/FileOperations';
 import * as Adapter from '../lib/ReactFlowAdapter';
 import { HISTORY_MAX_STEPS } from '../constants';
@@ -83,6 +83,12 @@ export interface GraphModel {
   // Selection operations
   setSelectedNodeIds: (nodeIds: string[]) => void;
   
+  // Clipboard operations
+  copyToClipboard: () => void;
+  cutToClipboard: () => void;
+  pasteFromClipboard: (position?: { x: number; y: number }) => void;
+  hasClipboard: boolean;
+  
   // Navigation operations
   navigateInto: (nodeId: string) => void;
   navigateToParent: () => void;
@@ -131,6 +137,9 @@ export function useGraphModel(): GraphModel {
   
   // Selection state (needed for adapter)
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  
+  // Clipboard state (for cut/copy/paste operations)
+  const [clipboard, setClipboard] = useState<HierarchicalNode[]>([]);
   
   // History management (undo/redo) - tracks DocumentModel snapshots
   const { undo, redo, captureSnapshot, canUndo, canRedo } = useDocumentHistory(
@@ -239,7 +248,8 @@ export function useGraphModel(): GraphModel {
     return Adapter.toReactFlowNode(newNode);
   }, [currentGroupId, captureSnapshot]);
   
-  // Duplicate an existing node
+  // Duplicate an existing node (entire subtree)
+  // Note: Does NOT affect clipboard - this is a direct copy operation
   const duplicateNode = useCallback((nodeId: string): Node<NodeData> | null => {
     let duplicatedNode: any = null;
     setDocument((doc) => {
@@ -265,6 +275,51 @@ export function useGraphModel(): GraphModel {
   const updateNodeData = useCallback((nodeId: string, data: Partial<NodeData>) => {
     setDocument((doc) => doc.updateNodeData(nodeId, data));
   }, []);
+  
+  // Clipboard: Copy selected nodes to clipboard
+  const copyToClipboard = useCallback(() => {
+    if (selectedNodeIds.length === 0) return;
+    const copiedNodes = document.copySubtree(selectedNodeIds);
+    setClipboard(copiedNodes);
+  }, [document, selectedNodeIds]);
+  
+  // Clipboard: Cut selected nodes (copy + delete)
+  const cutToClipboard = useCallback(() => {
+    if (selectedNodeIds.length === 0) return;
+    const copiedNodes = document.copySubtree(selectedNodeIds);
+    setClipboard(copiedNodes);
+    
+    // Delete the selected nodes
+    let newDoc = document;
+    for (const nodeId of selectedNodeIds) {
+      newDoc = newDoc.removeNode(nodeId);
+    }
+    setDocument(newDoc);
+    setSelectedNodeIds([]);
+    captureSnapshot();
+  }, [document, selectedNodeIds, captureSnapshot]);
+  
+  // Clipboard: Paste nodes from clipboard
+  const pasteFromClipboard = useCallback((position?: { x: number; y: number }) => {
+    if (clipboard.length === 0) return;
+    
+    // Use provided position or default offset
+    const offset = position 
+      ? { x: position.x - clipboard[0].position.x, y: position.y - clipboard[0].position.y }
+      : { x: 50, y: 50 };
+    
+    const newDoc = document.pasteNodes(clipboard, currentGroupId, offset);
+    setDocument(newDoc);
+    
+    // Select the pasted nodes (root nodes from clipboard)
+    const clipboardNodeIds = new Set(clipboard.map(n => n.id));
+    const pastedRootNodes = clipboard.filter(n => 
+      n.data.parentId === null || !clipboardNodeIds.has(n.data.parentId)
+    );
+    setSelectedNodeIds(pastedRootNodes.map(n => n.id));
+    
+    captureSnapshot();
+  }, [clipboard, document, currentGroupId, captureSnapshot]);
   
   // Navigation: Navigate into a node (show its children)
   const navigateInto = useCallback((nodeId: string) => {
@@ -405,6 +460,12 @@ export function useGraphModel(): GraphModel {
     
     // Selection operations
     setSelectedNodeIds,
+    
+    // Clipboard operations
+    copyToClipboard,
+    cutToClipboard,
+    pasteFromClipboard,
+    hasClipboard: clipboard.length > 0,
     
     // Navigation operations
     navigateInto,
