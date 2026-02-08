@@ -7,6 +7,10 @@
 - Do NOT include planned features, future work, or "coming soon" sections
 - Document only what actually exists and works right now
 - If something is partially implemented, either omit it or clearly mark it as non-functional
+- Do not boast about test coverage, or number of tests: we can never have full coverage anyway. 
+
+### DEV_PLAN.md 
+- Do NOT update DEV_PLAN.md unless explicitly requested
 
 ## Development Guidelines
 

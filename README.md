@@ -7,8 +7,10 @@ A web-based node graph editor for visual thinking and organization.
 **Node Management**
 - Edit menu with node operations
 - Create new node (`Space`)
-- Duplicate selected node (`Cmd/Ctrl+D`)
-- Delete nodes
+- Duplicate selected node with entire subtree (`Cmd/Ctrl+D`)
+- Cut/Copy/Paste (`Cmd/Ctrl+X`, `Cmd/Ctrl+C`, `Cmd/Ctrl+V`)
+- Duplicate, Cut/Copy/Paste all respect hierarchy (entire subtrees)
+- Delete selected nodes (`Delete` or `Backspace`)
 - Multi-selection with modifiers (Shift to add, Cmd/Ctrl to toggle, Alt to remove)
 - Color-coded selection glow
 - Drag to reposition
@@ -66,7 +68,6 @@ MVC pattern with clean separation of concerns:
 - `DocumentModel` - Hierarchical document structure with parent/child relationships
 - `FileOperations` - JSON serialization/deserialization with versioning
 - `ReactFlowAdapter` - Converts between model and view formats
-- Fully unit tested (107 tests)
 
 **Controller Layer** (`src/hooks/`)
 - Thin React hooks that bridge model and view

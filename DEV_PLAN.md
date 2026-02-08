@@ -42,25 +42,18 @@
 
 **8. Hierarchical Groups (Nested Mind Maps)** ✓
 
-- `DocumentModel` class - hierarchical structure with `parentId` and `upstreamIds`
-- Immutable operations, computed children, no view dependencies
-- `useDocumentHistory` - tracks DocumentModel snapshots for undo/redo
-- `ReactFlowAdapter` - converts between model and ReactFlow formats
-- File I/O updated to JSON format, serializes hierarchical structure
+- `DocumentModel` class with `parentId` and `upstreamIds`
+- `ReactFlowAdapter` converts between model and view formats
 - Navigation state (`currentGroupId`) - ephemeral, not saved/undoable
-- `useGraphModel` refactored to use DocumentModel
-- Selection state synchronized between App and graph model
-- Node movement and selection working
-- Double-click node or hover + `E` key to navigate into (show children as siblings)
-- `ESC` key to navigate to parent group
-- Breadcrumb trail at bottom showing current path (Root > Node1 > Node2)
-- Clickable breadcrumbs for quick navigation to any level
-- Hover tracking for keyboard-driven navigation
-- Comprehensive test suite (107 tests passing)
+- Double-click or hover + `E` to enter group, `ESC` to exit
+- Breadcrumb trail for current path navigation
+
+**9. Cut/Copy/Paste** ✓
+
+- DocumentModel clipboard helpers (`getAllDescendants`, `copySubtree`, `pasteNodes`)
+- Cut/Copy/Paste with keyboard shortcuts (`Cmd/Ctrl+X/C/V`)
+- Duplicate refactored to use copy+paste internals
+- All operations respect hierarchy (entire subtrees with remapped IDs)
+- Edit menu with icons and shortcuts
 
 --- Current Position
-
-**9. Cut/Copy/Paste**
-- Move "new node" and "duplicate" to Edit menu
-- Add cut, copy and paste operations
-- Clipboard operations respect hierarchy
