@@ -68,6 +68,17 @@ function App() {
     const newSelection = graph.selectedNodeIds.filter(id => id !== nodeId);
     graph.setSelectedNodeIds(newSelection);
   }, [graph]);
+
+  // Called when user deletes selected nodes via keyboard shortcut
+  const handleDeleteSelected = useCallback(() => {
+    if (graph.selectedNodeIds.length === 0) return;
+    
+    // Delete all selected nodes
+    for (const nodeId of graph.selectedNodeIds) {
+      graph.deleteNode(nodeId);
+    }
+    graph.setSelectedNodeIds([]);
+  }, [graph]);
   
   // Called when user commits changes in ParameterEditor (blur or Enter)
   const handleCommitChanges = useCallback(() => {
@@ -129,6 +140,11 @@ function App() {
           selectedNodeIds={graph.selectedNodeIds}
           onCreateNode={graph.createNode}
           onDuplicateNode={graph.duplicateNode}
+          onDeleteSelected={handleDeleteSelected}
+          onCut={graph.cutToClipboard}
+          onCopy={graph.copyToClipboard}
+          onPaste={graph.pasteFromClipboard}
+          hasClipboard={graph.hasClipboard}
           onNew={handleNew}
           onSave={handleSave}
           onSaveAs={handleSaveAs}

@@ -236,32 +236,168 @@ export class DocumentModel {
   }
 
   /**
-   * Duplicate a node
-   * The duplicate has the same parent and data, but new ID, offset position, and no upstreams
-   * Returns both the new DocumentModel and the new node
+   * Duplicate a node and its entire subtree
+   * Uses copy + paste to preserve hierarchy
+   * The duplicate has the same parent, offset position, and "(Copy)" appended to root title
+   * Returns both the new DocumentModel and the root of the duplicated subtree
    */
   duplicateNode(nodeId: string): { model: DocumentModel; node: HierarchicalNode } | null {
     const original = this.findNode(nodeId);
     if (!original) return null;
 
-    const duplicated: HierarchicalNode = {
-      ...original,
-      id: DocumentModel.generateNodeId(),
-      position: {
-        x: original.position.x + DUPLICATE_NODE_OFFSET,
-        y: original.position.y + DUPLICATE_NODE_OFFSET,
-      },
-      data: {
-        ...original.data,
-        title: `${original.data.title} (Copy)`,
-        upstreamIds: [], // Don't copy connections
-      },
+    // Copy the entire subtree
+    const copied = this.copySubtree([nodeId]);
+    if (copied.length === 0) return null;
+
+    // Paste with offset
+    const offset = {
+      x: DUPLICATE_NODE_OFFSET,
+      y: DUPLICATE_NODE_OFFSET,
     };
+    const newModel = this.pasteNodes(copied, original.data.parentId, offset);
+
+    // Find the root of the duplicated subtree (has same parent as original)
+    const duplicatedRoot = newModel.getAllNodes().find(n => 
+      n.id !== nodeId && 
+      n.data.parentId === original.data.parentId &&
+      n.position.x === original.position.x + DUPLICATE_NODE_OFFSET &&
+      n.position.y === original.position.y + DUPLICATE_NODE_OFFSET
+    );
+
+    if (!duplicatedRoot) return null;
+
+    // Update the title to add "(Copy)"
+    const modelWithTitle = newModel.updateNodeData(duplicatedRoot.id, {
+      title: `${original.data.title} (Copy)`,
+    });
+
+    const finalNode = modelWithTitle.findNode(duplicatedRoot.id);
+    if (!finalNode) return null;
 
     return {
-      model: this.addNode(duplicated),
-      node: duplicated,
+      model: modelWithTitle,
+      node: finalNode,
     };
+  }
+
+  /**
+   * Get all descendants of a node (recursively)
+   * Returns an array of all child, grandchild, etc. node IDs
+   */
+  getAllDescendants(nodeId: string): string[] {
+    const descendants: string[] = [];
+    const directChildren = this.getNodesByParent(nodeId);
+    
+    for (const child of directChildren) {
+      descendants.push(child.id);
+      // Recursively get descendants of this child
+      descendants.push(...this.getAllDescendants(child.id));
+    }
+    
+    return descendants;
+  }
+
+  /**
+   * Copy a subtree (node and all descendants) with new IDs
+   * Returns the copied nodes with remapped IDs and connections
+   * Used for clipboard operations
+   */
+  copySubtree(nodeIds: string[]): HierarchicalNode[] {
+    // Collect all nodes to copy (including descendants)
+    const nodesToCopy = new Set<string>();
+    for (const nodeId of nodeIds) {
+      nodesToCopy.add(nodeId);
+      const descendants = this.getAllDescendants(nodeId);
+      descendants.forEach(id => nodesToCopy.add(id));
+    }
+    
+    // Create ID mapping for remapping
+    const idMap = new Map<string, string>();
+    nodesToCopy.forEach(oldId => {
+      idMap.set(oldId, DocumentModel.generateNodeId());
+    });
+    
+    // Copy nodes with new IDs
+    const copiedNodes: HierarchicalNode[] = [];
+    for (const oldId of nodesToCopy) {
+      const node = this.findNode(oldId);
+      if (!node) continue;
+      
+      const newId = idMap.get(oldId)!;
+      const newParentId = node.data.parentId && idMap.has(node.data.parentId)
+        ? idMap.get(node.data.parentId)!
+        : node.data.parentId;
+      
+      // Remap upstreamIds only if they're within the copied subtree
+      const newUpstreamIds = node.data.upstreamIds
+        .filter(id => idMap.has(id))
+        .map(id => idMap.get(id)!);
+      
+      copiedNodes.push({
+        ...node,
+        id: newId,
+        data: {
+          ...node.data,
+          parentId: newParentId,
+          upstreamIds: newUpstreamIds,
+        },
+      });
+    }
+    
+    return copiedNodes;
+  }
+
+  /**
+   * Paste nodes into the document at a target parent
+   * Adjusts positions and parent IDs as needed
+   * Returns a new DocumentModel (immutable operation)
+   */
+  pasteNodes(
+    nodes: HierarchicalNode[],
+    targetParentId: string | null,
+    offset: { x: number; y: number }
+  ): DocumentModel {
+    if (nodes.length === 0) return this;
+    
+    // Identify clipboard node IDs for parent checking
+    const clipboardNodeIds = new Set(nodes.map(n => n.id));
+    
+    // Identify root nodes (nodes whose parents aren't in the clipboard)
+    const rootNodes = nodes.filter(n => 
+      n.data.parentId === null || !clipboardNodeIds.has(n.data.parentId)
+    );
+    
+    // Adjust nodes:
+    // - Root nodes get the target parent and position offset
+    // - Other nodes keep their relative parent relationship
+    const adjustedNodes = nodes.map(node => {
+      const isRoot = rootNodes.some(r => r.id === node.id);
+      
+      if (isRoot) {
+        return {
+          ...node,
+          position: {
+            x: node.position.x + offset.x,
+            y: node.position.y + offset.y,
+          },
+          data: {
+            ...node.data,
+            parentId: targetParentId,
+          },
+        };
+      } else {
+        // Non-root nodes keep their relative positions and parent relationships
+        return node;
+      }
+    });
+    
+    // Add all adjusted nodes to the document
+    let newModel: DocumentModel = this;
+    for (const node of adjustedNodes) {
+      newModel = newModel.addNode(node);
+    }
+    
+    return newModel;
   }
 
   /**

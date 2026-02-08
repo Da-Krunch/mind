@@ -353,18 +353,54 @@ describe('DocumentModel', () => {
       expect(duplicate.position.y).toBe(150);
     });
 
-    it('should not copy connections when duplicating', () => {
+    it('should duplicate a node with its entire subtree', () => {
       const doc = DocumentModel.empty();
-      const node1 = doc.createNode(null);
-      const node2 = doc.createNode(null);
+      const parent = doc.createNode(null, { x: 100, y: 100 });
+      const child = doc.createNode(parent.id, { x: 200, y: 200 });
+      
+      const doc1 = doc
+        .addNode(parent)
+        .addNode(child)
+        .addEdge(parent.id, child.id);
 
-      let newDoc = doc.addNode(node1).addNode(node2);
-      newDoc = newDoc.addEdge(node1.id, node2.id);
+      const result = doc1.duplicateNode(parent.id);
+      expect(result).not.toBeNull();
+      
+      const { model: doc2, node: duplicatedParent } = result!;
 
-      const result = newDoc.duplicateNode(node2.id);
+      // Should have 4 nodes: original parent, original child, duplicated parent, duplicated child
+      expect(doc2.getNodeCount()).toBe(4);
+      
+      // Duplicated parent should have offset position
+      expect(duplicatedParent.position.x).toBe(150);
+      expect(duplicatedParent.position.y).toBe(150);
+      expect(duplicatedParent.data.title).toBe('New Node (Copy)');
+      
+      // Find duplicated child (should be child of duplicated parent)
+      const duplicatedChild = doc2.getNodesByParent(duplicatedParent.id)[0];
+      expect(duplicatedChild).toBeDefined();
+      
+      // Duplicated child should maintain relative position and parent relationship
+      expect(duplicatedChild.data.parentId).toBe(duplicatedParent.id);
+      
+      // Internal connection should be preserved
+      expect(duplicatedChild.data.upstreamIds).toContain(duplicatedParent.id);
+    });
+
+    it('should not copy external connections when duplicating', () => {
+      const doc = DocumentModel.empty();
+      const external = doc.createNode(null);
+      const node = doc.createNode(null);
+
+      let newDoc = doc.addNode(external).addNode(node);
+      newDoc = newDoc.addEdge(external.id, node.id);
+
+      // Duplicate node - external connection should be dropped
+      const result = newDoc.duplicateNode(node.id);
       expect(result).not.toBeNull();
       
       const { node: duplicate } = result!;
+      // External connection to 'external' should not be copied
       expect(duplicate.data.upstreamIds).toEqual([]);
     });
 
@@ -659,6 +695,194 @@ describe('DocumentModel', () => {
       // Adding edge to non-existent target does nothing
       const doc3 = doc1.addEdge(node.id, 'non-existent');
       expect(doc3.findNode('non-existent')).toBeUndefined();
+    });
+  });
+
+  describe('Clipboard operations', () => {
+    it('should get all descendants of a node', () => {
+      // Create hierarchy: root -> child1 -> grandchild1
+      //                        -> child2
+      const doc = DocumentModel.empty();
+      const root = doc.createNode(null, { x: 0, y: 0 });
+      const child1 = doc.createNode(root.id, { x: 0, y: 0 });
+      const child2 = doc.createNode(root.id, { x: 0, y: 0 });
+      const grandchild1 = doc.createNode(child1.id, { x: 0, y: 0 });
+      
+      const doc2 = doc
+        .addNode(root)
+        .addNode(child1)
+        .addNode(child2)
+        .addNode(grandchild1);
+      
+      const descendants = doc2.getAllDescendants(root.id);
+      expect(descendants).toHaveLength(3);
+      expect(descendants).toContain(child1.id);
+      expect(descendants).toContain(child2.id);
+      expect(descendants).toContain(grandchild1.id);
+    });
+
+    it('should return empty array for node with no descendants', () => {
+      const doc = DocumentModel.empty();
+      const node = doc.createNode(null, { x: 0, y: 0 });
+      const doc2 = doc.addNode(node);
+      
+      const descendants = doc2.getAllDescendants(node.id);
+      expect(descendants).toHaveLength(0);
+    });
+
+    it('should copy a subtree with new IDs', () => {
+      // Create hierarchy: parent -> child
+      const doc = DocumentModel.empty();
+      const parent = doc.createNode(null, { x: 100, y: 100 });
+      const child = doc.createNode(parent.id, { x: 200, y: 200 });
+      
+      const doc2 = doc
+        .addNode(parent)
+        .addNode(child)
+        .addEdge(parent.id, child.id);
+      
+      const copied = doc2.copySubtree([parent.id]);
+      
+      // Should copy both parent and child
+      expect(copied).toHaveLength(2);
+      
+      // Should have new IDs
+      const copiedIds = copied.map(n => n.id);
+      expect(copiedIds).not.toContain(parent.id);
+      expect(copiedIds).not.toContain(child.id);
+      
+      // Find copied parent and child
+      const copiedParent = copied.find(n => n.data.parentId === null);
+      const copiedChild = copied.find(n => n.data.parentId !== null);
+      
+      expect(copiedParent).toBeDefined();
+      expect(copiedChild).toBeDefined();
+      
+      // Child should reference new parent ID
+      expect(copiedChild!.data.parentId).toBe(copiedParent!.id);
+      
+      // Internal edge should be remapped
+      expect(copiedChild!.data.upstreamIds).toHaveLength(1);
+      expect(copiedChild!.data.upstreamIds[0]).toBe(copiedParent!.id);
+    });
+
+    it('should copy multiple subtrees', () => {
+      const doc = DocumentModel.empty();
+      const node1 = doc.createNode(null, { x: 0, y: 0 });
+      const node2 = doc.createNode(null, { x: 100, y: 100 });
+      
+      const doc2 = doc.addNode(node1).addNode(node2);
+      
+      const copied = doc2.copySubtree([node1.id, node2.id]);
+      
+      expect(copied).toHaveLength(2);
+      expect(copied.every(n => n.data.parentId === null)).toBe(true);
+    });
+
+    it('should drop external connections when copying', () => {
+      const doc = DocumentModel.empty();
+      const external = doc.createNode(null, { x: 0, y: 0 });
+      const internal = doc.createNode(null, { x: 100, y: 100 });
+      
+      const doc2 = doc
+        .addNode(external)
+        .addNode(internal)
+        .addEdge(external.id, internal.id);
+      
+      // Copy only internal node
+      const copied = doc2.copySubtree([internal.id]);
+      
+      expect(copied).toHaveLength(1);
+      // External connection should be dropped
+      expect(copied[0].data.upstreamIds).toHaveLength(0);
+    });
+
+    it('should paste nodes at target parent with offset', () => {
+      const doc = DocumentModel.empty();
+      const node = doc.createNode(null, { x: 100, y: 100 });
+      const doc2 = doc.addNode(node);
+      
+      // Copy the node
+      const clipboard = doc2.copySubtree([node.id]);
+      
+      // Paste with offset
+      const doc3 = doc2.pasteNodes(clipboard, null, { x: 50, y: 50 });
+      
+      const allNodes = doc3.getAllNodes();
+      expect(allNodes).toHaveLength(2); // Original + pasted
+      
+      const pastedNode = allNodes.find(n => n.id !== node.id);
+      expect(pastedNode).toBeDefined();
+      expect(pastedNode!.position).toEqual({ x: 150, y: 150 });
+      expect(pastedNode!.data.parentId).toBeNull();
+    });
+
+    it('should paste subtree to different parent', () => {
+      const doc = DocumentModel.empty();
+      const parent = doc.createNode(null, { x: 0, y: 0 });
+      const child = doc.createNode(null, { x: 100, y: 100 });
+      
+      const doc2 = doc.addNode(parent).addNode(child);
+      
+      // Copy child
+      const clipboard = doc2.copySubtree([child.id]);
+      
+      // Paste as child of parent
+      const doc3 = doc2.pasteNodes(clipboard, parent.id, { x: 0, y: 0 });
+      
+      const pastedNode = doc3.getAllNodes().find(n => 
+        n.id !== parent.id && n.id !== child.id
+      );
+      
+      expect(pastedNode).toBeDefined();
+      expect(pastedNode!.data.parentId).toBe(parent.id);
+    });
+
+    it('should preserve hierarchy when pasting subtree', () => {
+      const doc = DocumentModel.empty();
+      const parent = doc.createNode(null, { x: 0, y: 0 });
+      const child = doc.createNode(parent.id, { x: 100, y: 100 });
+      
+      const doc2 = doc
+        .addNode(parent)
+        .addNode(child);
+      
+      // Copy entire subtree
+      const clipboard = doc2.copySubtree([parent.id]);
+      
+      // Paste
+      const doc3 = doc2.pasteNodes(clipboard, null, { x: 200, y: 0 });
+      
+      expect(doc3.getAllNodes()).toHaveLength(4); // 2 original + 2 pasted
+      
+      // Find pasted parent (new node at root with offset position)
+      const pastedParent = doc3.getAllNodes().find(n => 
+        n.id !== parent.id && 
+        n.id !== child.id && 
+        n.data.parentId === null
+      );
+      
+      expect(pastedParent).toBeDefined();
+      
+      // Find pasted child (should reference pasted parent)
+      const pastedChild = doc3.getAllNodes().find(n => 
+        n.id !== parent.id && 
+        n.id !== child.id && 
+        n.data.parentId === pastedParent!.id
+      );
+      
+      expect(pastedChild).toBeDefined();
+    });
+
+    it('should handle pasting empty clipboard', () => {
+      const doc = DocumentModel.empty();
+      const node = doc.createNode(null, { x: 0, y: 0 });
+      const doc2 = doc.addNode(node);
+      
+      const doc3 = doc2.pasteNodes([], null, { x: 0, y: 0 });
+      
+      expect(doc3.getAllNodes()).toHaveLength(1);
+      expect(doc3).toBe(doc2); // Should return same instance
     });
   });
 });
